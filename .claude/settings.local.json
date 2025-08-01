@@ -5,7 +5,9 @@
       "Bash(git init:*)",
       "Bash(mkdir:*)",
       "Bash(pnpm install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

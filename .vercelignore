@@ -1,0 +1,17 @@
+# Ignore files for Vercel deployment
+.git
+.github
+node_modules
+.env*.local
+.cache
+.turbo
+*.log
+.DS_Store
+docs
+*.test.*
+*.spec.*
+__tests__
+coverage
+.nyc_output
+.vscode
+.idea

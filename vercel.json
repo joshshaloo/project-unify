@@ -1,0 +1,7 @@
+{
+  "buildCommand": "pnpm turbo run build --filter=@soccer/web",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "rootDirectory": "."
+}

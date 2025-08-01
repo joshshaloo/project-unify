@@ -1,0 +1,52 @@
+{
+  "name": "project-unify",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Youth Soccer AI Platform - Empowering coaches with AI-driven training plans",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/project-unify.git"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,md,json}\"",
+    "prepare": "husky install",
+    "db:migrate": "pnpm --filter @soccer/api db:migrate",
+    "db:migrate:dev": "pnpm --filter @soccer/api db:migrate:dev",
+    "db:seed": "pnpm --filter @soccer/api db:seed",
+    "db:studio": "pnpm --filter @soccer/api db:studio",
+    "db:reset": "pnpm --filter @soccer/api db:reset"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "eslint": "^8.56.0",
+    "husky": "^9.0.10",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.2.4",
+    "turbo": "^1.11.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.17.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.1",
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{md,json}": [
+      "prettier --write"
+    ]
+  }
+}

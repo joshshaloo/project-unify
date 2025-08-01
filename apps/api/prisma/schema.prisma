@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  doc
+  head_coach
+  assistant_coach
+  parent
+  player
+}
+
+enum SessionStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  completed
+}
+
+enum DrillCategory {
+  technical
+  tactical
+  physical
+  mental
+  warm_up
+  cool_down
+  game
+}
+
+model Club {
+  id            String         @id @default(cuid())
+  name          String
+  settings      Json           @default("{}")
+  subscription  String         @default("trial")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  teams         Team[]
+  users         UserClubRole[]
+  curriculum    Curriculum?
+  drills        Drill[]
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  avatar        String?
+  preferences   Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  clubs         UserClubRole[]
+  createdSessions Session[]    @relation("CreatedBy")
+  approvedSessions Session[]   @relation("ApprovedBy")
+}
+
+model UserClubRole {
+  id            String         @id @default(cuid())
+  userId        String
+  clubId        String
+  role          Role
+  isPrimary     Boolean        @default(false)
+  permissions   Json           @default("{}")
+  expiresAt     DateTime?
+  createdAt     DateTime       @default(now())
+  
+  user          User           @relation(fields: [userId], references: [id])
+  club          Club           @relation(fields: [clubId], references: [id])
+  
+  @@unique([userId, clubId, role])
+  @@index([userId])
+  @@index([clubId])
+}
+
+model Team {
+  id            String         @id @default(cuid())
+  clubId        String
+  name          String
+  ageGroup      String
+  season        String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  club          Club           @relation(fields: [clubId], references: [id])
+  sessions      Session[]
+  members       TeamMember[]
+  
+  @@index([clubId])
+}
+
+model TeamMember {
+  id            String         @id @default(cuid())
+  teamId        String
+  userId        String
+  role          String         @default("player")
+  jerseyNumber  Int?
+  position      String?
+  createdAt     DateTime       @default(now())
+  
+  team          Team           @relation(fields: [teamId], references: [id])
+  
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model Session {
+  id            String         @id @default(cuid())
+  teamId        String
+  date          DateTime
+  duration      Int            // minutes
+  status        SessionStatus
+  theme         String?
+  objectives    String[]
+  plan          Json
+  feedback      Json?
+  createdBy     String
+  approvedBy    String?
+  approvedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  team          Team           @relation(fields: [teamId], references: [id])
+  creator       User           @relation("CreatedBy", fields: [createdBy], references: [id])
+  approver      User?          @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  drills        SessionDrill[]
+  
+  @@index([teamId])
+  @@index([date])
+  @@index([status])
+}
+
+model Drill {
+  id            String         @id @default(cuid())
+  clubId        String?        // Null for default drills
+  name          String
+  description   String
+  category      DrillCategory
+  skillFocus    String[]
+  ageGroups     String[]
+  duration      Int            // minutes
+  playersMin    Int
+  playersMax    Int
+  
+  // YouTube Integration
+  videoUrl      String?
+  videoId       String?
+  thumbnail     String?
+  
+  // Content
+  setup         String
+  instructions  String[]
+  coachingPoints String[]
+  variations    String[]
+  
+  // Metadata
+  difficulty    Int            @default(3) // 1-5
+  equipment     String[]
+  space         String         // "small", "medium", "large"
+  
+  createdAt     DateTime       @default(now())
+  createdBy     String
+  isActive      Boolean        @default(true)
+  
+  club          Club?          @relation(fields: [clubId], references: [id])
+  sessions      SessionDrill[]
+  
+  @@index([clubId, category])
+  @@index([skillFocus])
+}
+
+model SessionDrill {
+  id            String         @id @default(cuid())
+  sessionId     String
+  drillId       String
+  order         Int
+  duration      Int            // Can override drill default
+  notes         String?
+  
+  session       Session        @relation(fields: [sessionId], references: [id])
+  drill         Drill          @relation(fields: [drillId], references: [id])
+  
+  @@unique([sessionId, order])
+  @@index([drillId])
+}
+
+model Curriculum {
+  id            String         @id @default(cuid())
+  clubId        String         @unique
+  name          String
+  description   String?
+  phases        Json           // Structured curriculum data
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  club          Club           @relation(fields: [clubId], references: [id])
+}

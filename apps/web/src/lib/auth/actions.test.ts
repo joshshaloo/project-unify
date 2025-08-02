@@ -63,10 +63,7 @@ describe('Auth Actions', () => {
   describe('login', () => {
     it('should successfully log in a user with valid credentials', async () => {
       const mockSupabase = mockSuccessfulLogin()
-      mockCreateClient.mockResolvedValue(mockSupabase)
-
-      console.log('mockCreateClient implementation:', mockCreateClient.getMockImplementation())
-      console.log('mockSupabase structure:', Object.keys(mockSupabase))
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const formData = createMockFormData({
         email: 'test@example.com',
@@ -87,7 +84,7 @@ describe('Auth Actions', () => {
 
     it('should return error for invalid credentials', async () => {
       const mockSupabase = mockFailedLogin('Invalid login credentials')
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const formData = createMockFormData({
         email: 'wrong@example.com',
@@ -106,7 +103,7 @@ describe('Auth Actions', () => {
 
     it('should return error for missing email', async () => {
       const mockSupabase = mockFailedLogin('Email is required')
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const formData = createMockFormData({
         email: '',
@@ -120,7 +117,7 @@ describe('Auth Actions', () => {
 
     it('should return error for missing password', async () => {
       const mockSupabase = mockFailedLogin('Password is required')
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const formData = createMockFormData({
         email: 'test@example.com',
@@ -136,7 +133,7 @@ describe('Auth Actions', () => {
   describe('signup', () => {
     it('should successfully sign up a user without invitation', async () => {
       const mockSupabase = mockSuccessfulSignup()
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       
       // Mock Prisma for user creation
       mockSuccessfulUserCreation()
@@ -159,7 +156,7 @@ describe('Auth Actions', () => {
 
     it('should successfully sign up a user with valid invitation', async () => {
       const mockSupabase = mockSuccessfulSignup()
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       
       // Mock Prisma with valid invitation
       mockValidInvitation()
@@ -259,7 +256,7 @@ describe('Auth Actions', () => {
 
     it('should return error for Supabase signup failure', async () => {
       const mockSupabase = mockFailedSignup('User already registered')
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       mockValidInvitation()
 
       const formData = createMockFormData({
@@ -275,7 +272,7 @@ describe('Auth Actions', () => {
 
     it('should continue on database error during user creation', async () => {
       const mockSupabase = mockSuccessfulSignup()
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       mockDatabaseError()
 
       const formData = createMockFormData({
@@ -299,7 +296,7 @@ describe('Auth Actions', () => {
           signOut: vi.fn().mockResolvedValue({ error: null }),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       await signOut()
 
@@ -314,7 +311,7 @@ describe('Auth Actions', () => {
           signOut: vi.fn().mockRejectedValue(new Error('Network error')),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       // Should not throw error
       await signOut()
@@ -328,7 +325,7 @@ describe('Auth Actions', () => {
   describe('getUser', () => {
     it('should return null when no user is authenticated', async () => {
       const mockSupabase = mockNoUser()
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const user = await getUser()
 
@@ -345,7 +342,7 @@ describe('Auth Actions', () => {
           }),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       mockPrismaNoUser()
 
       const user = await getUser()
@@ -373,7 +370,7 @@ describe('Auth Actions', () => {
           }),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       mockSuccessfulUserLookup()
 
       const user = await getUser()
@@ -401,7 +398,7 @@ describe('Auth Actions', () => {
           }),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
       mockPrisma.user.findUnique = vi.fn().mockRejectedValue(new Error('Database error'))
 
       const user = await getUser()
@@ -419,7 +416,7 @@ describe('Auth Actions', () => {
           }),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const user = await getUser()
 

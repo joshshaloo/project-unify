@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/test/utils/test-utils'
 import { SignupForm } from './signup-form'
 import * as authActions from '@/lib/auth/actions'
+import { AuthActionResult } from '@/lib/types/auth'
 
 // Mock the auth actions
 vi.mock('@/lib/auth/actions', () => ({
@@ -77,7 +78,7 @@ describe('SignupForm', () => {
 
   it('should submit form with valid data', async () => {
     const mockSignup = vi.mocked(authActions.signup)
-    mockSignup.mockResolvedValue(undefined) // Successful signup
+    ;(mockSignup as any).mockResolvedValue(undefined) // Successful signup
 
     renderWithProviders(<SignupForm />)
 
@@ -109,7 +110,7 @@ describe('SignupForm', () => {
 
   it('should show loading state during form submission', async () => {
     const mockSignup = vi.mocked(authActions.signup)
-    mockSignup.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 1000)))
+    ;(mockSignup as any).mockImplementation(() => new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 1000)))
 
     renderWithProviders(<SignupForm />)
 
@@ -136,7 +137,7 @@ describe('SignupForm', () => {
 
   it('should display error message on signup failure', async () => {
     const mockSignup = vi.mocked(authActions.signup)
-    mockSignup.mockResolvedValue({ error: 'User already registered' })
+    ;(mockSignup as any).mockResolvedValue({ error: 'User already registered' })
 
     renderWithProviders(<SignupForm />)
 
@@ -162,8 +163,8 @@ describe('SignupForm', () => {
 
   it('should clear error message on new submission', async () => {
     const mockSignup = vi.mocked(authActions.signup)
-    mockSignup.mockResolvedValueOnce({ error: 'User already registered' })
-    mockSignup.mockResolvedValueOnce(undefined)
+    ;(mockSignup as any).mockResolvedValueOnce({ error: 'User already registered' })
+    ;(mockSignup as any).mockResolvedValueOnce(undefined)
 
     renderWithProviders(<SignupForm />)
 
@@ -250,7 +251,7 @@ describe('SignupForm', () => {
 
   it('should handle form submission with enter key', async () => {
     const mockSignup = vi.mocked(authActions.signup)
-    mockSignup.mockResolvedValue(undefined)
+    ;(mockSignup as any).mockResolvedValue(undefined)
 
     renderWithProviders(<SignupForm />)
 
@@ -336,7 +337,7 @@ describe('SignupForm', () => {
 
   it('should handle invitation-specific signup errors', async () => {
     const mockSignup = vi.mocked(authActions.signup)
-    mockSignup.mockResolvedValue({ error: 'Invalid invitation token' })
+    ;(mockSignup as any).mockResolvedValue({ error: 'Invalid invitation token' })
 
     renderWithProviders(<SignupForm />)
 

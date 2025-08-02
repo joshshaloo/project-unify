@@ -1,7 +1,7 @@
 import React, { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { vi } from 'vitest'
+import { vi, expect } from 'vitest'
 
 // Create a new QueryClient for each test
 export const createTestQueryClient = () =>
@@ -14,11 +14,6 @@ export const createTestQueryClient = () =>
       mutations: {
         retry: false,
       },
-    },
-    logger: {
-      log: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
     },
   })
 

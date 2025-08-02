@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { RoleBadge } from '@/components/auth/role-badge'
+import { ClubWithUserData } from '@/lib/types/club'
 
 export default function ClubSelectPage() {
   const router = useRouter()
@@ -62,7 +63,7 @@ export default function ClubSelectPage() {
         </div>
 
         <div className="grid gap-4">
-          {clubs.map((club) => (
+          {clubs.map((club: ClubWithUserData) => (
             <button
               key={club.id}
               onClick={() => selectClub(club.id)}

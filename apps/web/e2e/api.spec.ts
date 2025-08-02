@@ -98,7 +98,9 @@ test.describe('API Routes', () => {
     })
 
     test('should handle CORS headers', async ({ request }) => {
-      const response = await request.options('/api/health')
+      const response = await request.fetch('/api/health', {
+        method: 'OPTIONS'
+      })
       
       // Should either handle OPTIONS or return method not allowed
       expect([200, 204, 405]).toContain(response.status())

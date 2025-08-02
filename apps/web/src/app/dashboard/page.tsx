@@ -2,6 +2,7 @@ import { getUser, signOut } from '@/lib/auth/actions'
 import { redirect } from 'next/navigation'
 import { RoleBadge } from '@/components/auth/role-badge'
 import { api } from '@/lib/trpc/server-api'
+import { ClubWithUserData } from '@/lib/types/club'
 
 export default async function DashboardPage() {
   const user = await getUser()
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {clubs.map((club) => (
+              {clubs.map((club: ClubWithUserData) => (
                 <div
                   key={club.id}
                   className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"

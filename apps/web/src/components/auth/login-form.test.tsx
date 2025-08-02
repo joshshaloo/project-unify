@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/test/utils/test-utils'
 import { LoginForm } from './login-form'
 import * as authActions from '@/lib/auth/actions'
+import { AuthActionResult } from '@/lib/types/auth'
 
 // Mock the auth actions
 vi.mock('@/lib/auth/actions', () => ({
@@ -61,7 +62,7 @@ describe('LoginForm', () => {
 
   it('should submit form with valid credentials', async () => {
     const mockLogin = vi.mocked(authActions.login)
-    mockLogin.mockResolvedValue(undefined) // Successful login
+    ;(mockLogin as any).mockResolvedValue(undefined) // Successful login
 
     renderWithProviders(<LoginForm />)
 
@@ -85,7 +86,7 @@ describe('LoginForm', () => {
 
   it('should show loading state during form submission', async () => {
     const mockLogin = vi.mocked(authActions.login)
-    mockLogin.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 1000)))
+    ;(mockLogin as any).mockImplementation(() => new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 1000)))
 
     renderWithProviders(<LoginForm />)
 
@@ -105,7 +106,7 @@ describe('LoginForm', () => {
 
   it('should display error message on login failure', async () => {
     const mockLogin = vi.mocked(authActions.login)
-    mockLogin.mockResolvedValue({ error: 'Invalid login credentials' })
+    ;(mockLogin as any).mockResolvedValue({ error: 'Invalid login credentials' })
 
     renderWithProviders(<LoginForm />)
 
@@ -127,8 +128,8 @@ describe('LoginForm', () => {
 
   it('should clear error message on new submission', async () => {
     const mockLogin = vi.mocked(authActions.login)
-    mockLogin.mockResolvedValueOnce({ error: 'Invalid login credentials' })
-    mockLogin.mockResolvedValueOnce(undefined)
+    ;(mockLogin as any).mockResolvedValueOnce({ error: 'Invalid login credentials' })
+    ;(mockLogin as any).mockResolvedValueOnce(undefined)
 
     renderWithProviders(<LoginForm />)
 
@@ -159,7 +160,7 @@ describe('LoginForm', () => {
 
   it('should handle form submission with enter key', async () => {
     const mockLogin = vi.mocked(authActions.login)
-    mockLogin.mockResolvedValue(undefined)
+    ;(mockLogin as any).mockResolvedValue(undefined)
 
     renderWithProviders(<LoginForm />)
 

@@ -142,12 +142,12 @@ export const createValidInvitation = (overrides: Partial<TestInvitation> = {}): 
   })
 
 // Batch creation helpers
-export const createTestUsers = (count: number, overrides: Partial<TestUser> = []): TestUser[] =>
+export const createTestUsers = (count: number, overrides: Partial<TestUser>[] = []): TestUser[] =>
   Array.from({ length: count }, (_, index) => 
-    createTestUser(Array.isArray(overrides) ? overrides[index] || {} : overrides)
+    createTestUser(overrides[index] || {})
   )
 
-export const createTestClubs = (count: number, overrides: Partial<TestClub> = []): TestClub[] =>
+export const createTestClubs = (count: number, overrides: Partial<TestClub>[] = []): TestClub[] =>
   Array.from({ length: count }, (_, index) => 
-    createTestClub(Array.isArray(overrides) ? overrides[index] || {} : overrides)
+    createTestClub(overrides[index] || {})
   )

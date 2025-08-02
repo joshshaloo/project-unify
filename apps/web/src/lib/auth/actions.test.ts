@@ -1,35 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-// Import the actions and mocks
-import { login, signup, signOut, getUser } from './actions'
-import { 
-  mockSuccessfulLogin, 
-  mockFailedLogin,
-  mockSuccessfulSignup,
-  mockFailedSignup,
-  mockNoUser,
-  mockUser,
-  mockDbUser
-} from '@/test/mocks/supabase'
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
+
+// Import the actions
+import { login, signup, signOut, getUser } from './actions'
+
+// Import test utilities
+import { createMockFormData } from '@/test/utils/test-utils'
+import { 
+  mockUser,
+  mockDbUser,
+} from '@/test/mocks/supabase'
 
 // Get the mocked versions
 const mockCreateClient = vi.mocked(createClient)
 const mockRedirect = vi.mocked(redirect)
-import { 
-  mockPrisma,
-  mockSuccessfulUserLookup,
-  mockSuccessfulUserCreation,
-  mockValidInvitation,
-  mockUsedInvitation,
-  mockExpiredInvitation,
-  mockInvalidInvitation,
-  mockNoUser as mockPrismaNoUser,
-  mockDatabaseError
-} from '@/test/mocks/prisma'
-import { createMockFormData } from '@/test/utils/test-utils'
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
+const mockPrisma = vi.mocked(prisma)
 
 // Mock Next.js functions - redirect throws an error in Next.js
 vi.mock('next/navigation', () => ({
@@ -45,7 +33,8 @@ vi.mock('next/cache', () => ({
 describe('Auth Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset Prisma mocks
+    
+    // Reset all mocks to default state
     mockPrisma.user.findUnique.mockResolvedValue(null)
     mockPrisma.user.create.mockResolvedValue(null as any)
     mockPrisma.invitation.findUnique.mockResolvedValue(null)
@@ -54,6 +43,7 @@ describe('Auth Actions', () => {
     mockPrisma.$transaction.mockImplementation(async (callback) => {
       return callback(mockPrisma)
     })
+    
     // Reset createClient mock to default
     mockCreateClient.mockResolvedValue({
       auth: {
@@ -67,7 +57,14 @@ describe('Auth Actions', () => {
 
   describe('login', () => {
     it('should successfully log in a user with valid credentials', async () => {
-      const mockSupabase = mockSuccessfulLogin()
+      const mockSupabase = {
+        auth: {
+          signInWithPassword: vi.fn().mockResolvedValue({
+            data: { user: mockUser, session: { access_token: 'mock-token' } },
+            error: null,
+          }),
+        },
+      }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const formData = createMockFormData({
@@ -76,11 +73,7 @@ describe('Auth Actions', () => {
       })
 
       // Login function redirects on success, so we expect it to throw
-      try {
-        await login(formData)
-      } catch (error) {
-        // redirect() throws an error in Next.js
-      }
+      await expect(login(formData)).rejects.toThrow('NEXT_REDIRECT: /dashboard')
 
       // Check if mockCreateClient was called
       expect(mockCreateClient).toHaveBeenCalled()
@@ -93,26 +86,22 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for invalid credentials', async () => {
-      const mockSupabase = mockFailedLogin('Invalid login credentials')
-      mockCreateClient.mockResolvedValueOnce(mockSupabase as any)
+      const mockSupabase = {
+        auth: {
+          signInWithPassword: vi.fn().mockResolvedValue({
+            data: { user: null, session: null },
+            error: { message: 'Invalid login credentials' },
+          }),
+        },
+      }
+      mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const formData = createMockFormData({
         email: 'wrong@example.com',
         password: 'wrongpassword',
       })
 
-      // Test may redirect, catch it
-      let result
-      try {
-        result = await login(formData)
-      } catch (error) {
-        // If it throws a redirect, the result should have been returned before
-      }
-
-      console.log('Result:', result)
-      console.log('Mock called:', mockCreateClient.mock.calls.length)
-      console.log('Mock implementation:', mockCreateClient.getMockImplementation())
-      console.log('mockSupabase auth:', mockSupabase.auth.signInWithPassword.mock.calls.length)
+      const result = await login(formData)
       
       expect(result).toEqual({ error: 'Invalid email or password' })
       expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
@@ -123,9 +112,6 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for missing email', async () => {
-      const mockSupabase = mockFailedLogin('Email is required')
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-
       const formData = createMockFormData({
         email: '',
         password: 'password123',
@@ -137,9 +123,6 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for missing password', async () => {
-      const mockSupabase = mockFailedLogin('Password is required')
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-
       const formData = createMockFormData({
         email: 'test@example.com',
         password: '',
@@ -153,25 +136,30 @@ describe('Auth Actions', () => {
 
   describe('signup', () => {
     it('should successfully sign up a user without invitation', async () => {
-      const mockSupabase = mockSuccessfulSignup()
+      const mockSupabase = {
+        auth: {
+          signUp: vi.fn().mockResolvedValue({
+            data: { 
+              user: mockUser, 
+              session: null // Email confirmation required
+            },
+            error: null,
+          }),
+        },
+      }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
       
-      // Mock Prisma for user creation
-      mockSuccessfulUserCreation()
+      // Mock successful user creation
+      mockPrisma.user.create.mockResolvedValue(mockDbUser)
 
       const formData = createMockFormData({
         email: 'newuser@example.com',
         password: 'password123',
         name: 'New User',
-        invite: undefined,
       })
 
       // Signup function redirects on success, so we expect it to throw
-      try {
-        await signup(formData)
-      } catch (error) {
-        // redirect() throws an error in Next.js
-      }
+      await expect(signup(formData)).rejects.toThrow('NEXT_REDIRECT: /auth/verify-email')
 
       expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
         email: 'newuser@example.com',
@@ -187,12 +175,33 @@ describe('Auth Actions', () => {
     })
 
     it('should successfully sign up a user with valid invitation', async () => {
-      const mockSupabase = mockSuccessfulSignup()
+      const mockSupabase = {
+        auth: {
+          signUp: vi.fn().mockResolvedValue({
+            data: { 
+              user: mockUser, 
+              session: null
+            },
+            error: null,
+          }),
+        },
+      }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
       
-      // Mock Prisma with valid invitation
-      mockValidInvitation()
-      mockSuccessfulUserCreation()
+      // Mock valid invitation
+      const mockInvitation = {
+        id: 'invite-123',
+        token: 'valid-token-123',
+        email: 'inviteduser@example.com',
+        role: 'assistant_coach',
+        clubId: 'club-1',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        usedAt: null,
+        usedByEmail: null,
+        club: { id: 'club-1', name: 'Test FC' },
+      }
+      mockPrisma.invitation.findUnique.mockResolvedValue(mockInvitation)
+      mockPrisma.user.create.mockResolvedValue(mockDbUser)
 
       const formData = createMockFormData({
         email: 'inviteduser@example.com',
@@ -202,11 +211,7 @@ describe('Auth Actions', () => {
       })
 
       // Signup function redirects on success, so we expect it to throw
-      try {
-        await signup(formData)
-      } catch (error) {
-        // redirect() throws an error in Next.js
-      }
+      await expect(signup(formData)).rejects.toThrow('NEXT_REDIRECT: /auth/verify-email')
 
       expect(mockPrisma.invitation.findUnique).toHaveBeenCalledWith({
         where: { token: 'valid-token-123' },
@@ -225,7 +230,7 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for invalid invitation token', async () => {
-      mockInvalidInvitation()
+      mockPrisma.invitation.findUnique.mockResolvedValue(null)
 
       const formData = createMockFormData({
         email: 'user@example.com',
@@ -244,7 +249,18 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for used invitation', async () => {
-      mockUsedInvitation()
+      const usedInvitation = {
+        id: 'invite-123',
+        token: 'used-token',
+        email: 'user@example.com',
+        role: 'assistant_coach',
+        clubId: 'club-1',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        usedAt: new Date('2024-01-01'),
+        usedByEmail: 'someone@example.com',
+        club: { id: 'club-1', name: 'Test FC' },
+      }
+      mockPrisma.invitation.findUnique.mockResolvedValue(usedInvitation)
 
       const formData = createMockFormData({
         email: 'user@example.com',
@@ -259,7 +275,18 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for expired invitation', async () => {
-      mockExpiredInvitation()
+      const expiredInvitation = {
+        id: 'invite-123',
+        token: 'expired-token',
+        email: 'user@example.com',
+        role: 'assistant_coach',
+        clubId: 'club-1',
+        expiresAt: new Date('2023-01-01'), // Past date
+        usedAt: null,
+        usedByEmail: null,
+        club: { id: 'club-1', name: 'Test FC' },
+      }
+      mockPrisma.invitation.findUnique.mockResolvedValue(expiredInvitation)
 
       const formData = createMockFormData({
         email: 'user@example.com',
@@ -286,7 +313,7 @@ describe('Auth Actions', () => {
         club: { id: 'club-1', name: 'Test FC' },
       }
 
-      mockPrisma.invitation.findUnique = vi.fn().mockResolvedValue(invitation)
+      mockPrisma.invitation.findUnique.mockResolvedValue(invitation)
 
       const formData = createMockFormData({
         email: 'different@example.com',
@@ -301,15 +328,20 @@ describe('Auth Actions', () => {
     })
 
     it('should return error for Supabase signup failure', async () => {
-      const mockSupabase = mockFailedSignup('User already registered')
+      const mockSupabase = {
+        auth: {
+          signUp: vi.fn().mockResolvedValue({
+            data: { user: null, session: null },
+            error: { message: 'User already registered' },
+          }),
+        },
+      }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockValidInvitation()
 
       const formData = createMockFormData({
         email: 'existing@example.com',
         password: 'password123',
         name: 'Test User',
-        invite: undefined,
       })
 
       const result = await signup(formData)
@@ -319,23 +351,28 @@ describe('Auth Actions', () => {
     })
 
     it('should continue on database error during user creation', async () => {
-      const mockSupabase = mockSuccessfulSignup()
+      const mockSupabase = {
+        auth: {
+          signUp: vi.fn().mockResolvedValue({
+            data: { 
+              user: mockUser, 
+              session: null
+            },
+            error: null,
+          }),
+        },
+      }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockDatabaseError()
+      mockPrisma.$transaction.mockRejectedValue(new Error('Database error'))
 
       const formData = createMockFormData({
         email: 'newuser@example.com',
         password: 'password123',
         name: 'New User',
-        invite: undefined,
       })
 
       // Should not throw error, but continue to redirect
-      try {
-        await signup(formData)
-      } catch (error) {
-        // redirect() throws an error in Next.js
-      }
+      await expect(signup(formData)).rejects.toThrow('NEXT_REDIRECT: /auth/verify-email')
 
       expect(mockSupabase.auth.signUp).toHaveBeenCalled()
       expect(mockRedirect).toHaveBeenCalledWith('/auth/verify-email')
@@ -352,11 +389,7 @@ describe('Auth Actions', () => {
       mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       // SignOut function redirects, so we expect it to throw
-      try {
-        await signOut()
-      } catch (error) {
-        // redirect() throws an error in Next.js
-      }
+      await expect(signOut()).rejects.toThrow('NEXT_REDIRECT: /')
 
       expect(mockSupabase.auth.signOut).toHaveBeenCalled()
       expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
@@ -372,11 +405,7 @@ describe('Auth Actions', () => {
       mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       // SignOut function redirects, so we expect it to throw
-      try {
-        await signOut()
-      } catch (error) {
-        // redirect() throws an error in Next.js
-      }
+      await expect(signOut()).rejects.toThrow('NEXT_REDIRECT: /')
 
       expect(mockSupabase.auth.signOut).toHaveBeenCalled()
       expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
@@ -386,7 +415,14 @@ describe('Auth Actions', () => {
 
   describe('getUser', () => {
     it('should return null when no user is authenticated', async () => {
-      const mockSupabase = mockNoUser()
+      const mockSupabase = {
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: { user: null },
+            error: null,
+          }),
+        },
+      }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
 
       const user = await getUser()
@@ -405,7 +441,7 @@ describe('Auth Actions', () => {
         },
       }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockPrismaNoUser()
+      mockPrisma.user.findUnique.mockResolvedValue(null)
 
       const user = await getUser()
 
@@ -433,7 +469,7 @@ describe('Auth Actions', () => {
         },
       }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockSuccessfulUserLookup()
+      mockPrisma.user.findUnique.mockResolvedValue(mockDbUser)
 
       const user = await getUser()
 
@@ -461,7 +497,7 @@ describe('Auth Actions', () => {
         },
       }
       mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockPrisma.user.findUnique = vi.fn().mockRejectedValue(new Error('Database error'))
+      mockPrisma.user.findUnique.mockRejectedValue(new Error('Database error'))
 
       const user = await getUser()
 

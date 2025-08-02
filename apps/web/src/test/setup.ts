@@ -2,7 +2,41 @@ import '@testing-library/jest-dom'
 import { vi, afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import React from 'react'
+
+// Force polyfill loading first
 import './polyfills'
+
+// Additional force override for JSDOM with React Server Action support
+if (typeof HTMLFormElement !== 'undefined' && typeof window !== 'undefined') {
+  // Override JSDOM's stubbed implementation to handle React Server Actions
+  HTMLFormElement.prototype.requestSubmit = function(submitter?: HTMLElement) {
+    if (submitter && submitter.form !== this) {
+      throw new Error('Failed to execute \'requestSubmit\' on \'HTMLFormElement\': The specified element is not owned by this form element.')
+    }
+    
+    // Check if this form has a React Server Action
+    if (this.action && typeof this.action === 'function') {
+      // For React Server Actions, create FormData and call the action directly
+      const formData = new FormData(this)
+      try {
+        this.action(formData)
+      } catch (error) {
+        // Silently handle action errors in tests
+      }
+      return
+    }
+    
+    const event = new Event('submit', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'submitter', {
+      value: submitter || null,
+      writable: false,
+      enumerable: true,
+      configurable: true
+    })
+    
+    this.dispatchEvent(event)
+  }
+}
 
 // Cleanup after each test case
 afterEach(() => {
@@ -87,15 +121,32 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
-// Mock Prisma
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
+// Mock Prisma with a factory function that can be overridden
+const createMockPrisma = () => ({
+  user: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  invitation: {
+    findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  userClub: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+  },
+  club: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+  },
+  $transaction: vi.fn((fn) => fn({
     user: {
       create: vi.fn(),
       findUnique: vi.fn(),
-      findMany: vi.fn(),
       update: vi.fn(),
-      delete: vi.fn(),
     },
     invitation: {
       findUnique: vi.fn(),
@@ -103,54 +154,41 @@ vi.mock('@/lib/prisma', () => ({
     },
     userClub: {
       create: vi.fn(),
-      findMany: vi.fn(),
     },
     club: {
       create: vi.fn(),
-      findUnique: vi.fn(),
     },
-    $transaction: vi.fn((fn) => fn({
-      user: {
-        create: vi.fn(),
-        findUnique: vi.fn(),
-        update: vi.fn(),
-      },
-      invitation: {
-        findUnique: vi.fn(),
-        update: vi.fn(),
-      },
-      userClub: {
-        create: vi.fn(),
-      },
-      club: {
-        create: vi.fn(),
-      },
-    })),
-  },
+  })),
+})
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: createMockPrisma(),
 }))
 
 // Mock Supabase server client - this will be overridden by test-specific mocks
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn().mockResolvedValue({
-    auth: {
-      signInWithPassword: vi.fn().mockResolvedValue({ data: null, error: null }),
-      signUp: vi.fn().mockResolvedValue({ data: null, error: null }),
-      signOut: vi.fn().mockResolvedValue({ error: null }),
-      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
-      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-    },
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      delete: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn(),
-      maybeSingle: vi.fn(),
+const createMockSupabaseClient = () => ({
+  auth: {
+    signInWithPassword: vi.fn().mockResolvedValue({ data: null, error: null }),
+    signUp: vi.fn().mockResolvedValue({ data: null, error: null }),
+    signOut: vi.fn().mockResolvedValue({ error: null }),
+    getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    onAuthStateChange: vi.fn(() => ({
+      data: { subscription: { unsubscribe: vi.fn() } },
     })),
-  })
+  },
+  from: vi.fn(() => ({
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn(),
+    maybeSingle: vi.fn(),
+  })),
+})
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn().mockResolvedValue(createMockSupabaseClient()),
 }))
 

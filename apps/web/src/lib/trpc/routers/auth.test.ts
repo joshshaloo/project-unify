@@ -3,11 +3,16 @@ import { createMockTRPCContext } from '@/test/utils/test-utils'
 import { TRPCError } from '@trpc/server'
 import { createTestUser, createTestClub, createTestUserClub } from '@/test/factories'
 
-// Use the shared mock from setup
+// Mock the supabase server createClient function
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(),
+}))
 
 // Import after mocking
 import { authRouter } from './auth'
-import { mockCreateClient } from '@/test/mocks/supabase'
+import { createClient } from '@/lib/supabase/server'
+
+const mockCreateClient = vi.mocked(createClient)
 
 describe('Auth Router', () => {
   let ctx: any
@@ -162,6 +167,16 @@ describe('Auth Router', () => {
       const testUser = createTestUser({ onboardingCompleted: false })
       ctx.user = testUser
 
+      // Mock transaction to call the actual function so business logic error gets thrown
+      ctx.prisma.$transaction = vi.fn().mockImplementation(async (callback) => {
+        // Call the callback with a mock transaction object that won't be used
+        return callback({
+          user: { update: vi.fn() },
+          club: { create: vi.fn() },
+          userClub: { create: vi.fn() },
+        })
+      })
+
       await expect(caller.completeOnboarding({
         name: 'John Doe',
         role: 'parent',
@@ -173,25 +188,35 @@ describe('Auth Router', () => {
       const testUser = createTestUser()
       ctx.user = testUser
 
-      // Missing name
+      // Missing name - should fail validation (this will be caught by Zod)
       await expect(caller.completeOnboarding({
         name: '',
         role: 'head_coach',
         clubName: 'Test Club',
       })).rejects.toThrow()
 
-      // Invalid role
+      // Invalid role - should fail validation (this will be caught by Zod)
       await expect(caller.completeOnboarding({
         name: 'John Doe',
         role: 'invalid_role' as any,
         clubName: 'Test Club',
       })).rejects.toThrow()
 
-      // Missing club name and invite code
+      // Mock transaction to call the actual function so business logic error gets thrown
+      ctx.prisma.$transaction = vi.fn().mockImplementation(async (callback) => {
+        // Call the callback with a mock transaction object that won't be used
+        return callback({
+          user: { update: vi.fn() },
+          club: { create: vi.fn() },
+          userClub: { create: vi.fn() },
+        })
+      })
+
+      // Missing club name and invite code - should fail business logic
       await expect(caller.completeOnboarding({
         name: 'John Doe',
         role: 'head_coach',
-      })).rejects.toThrow()
+      })).rejects.toThrow('Either clubName or inviteCode is required')
     })
 
     it('should handle transaction failures', async () => {
@@ -283,10 +308,13 @@ describe('Auth Router', () => {
           signOut: vi.fn().mockResolvedValue({ error: null }),
         },
       }
+      
+      // Set up the mock for this specific test
       mockCreateClient.mockResolvedValue(mockSupabase)
 
       const result = await caller.signOut()
 
+      expect(mockCreateClient).toHaveBeenCalled()
       expect(mockSupabase.auth.signOut).toHaveBeenCalled()
       expect(result).toEqual({ success: true })
     })
@@ -319,9 +347,8 @@ describe('Auth Router', () => {
       }
       mockCreateClient.mockResolvedValue(mockSupabase)
 
-      // Should still return success even if request fails
+      // Should still return success even if request fails (error is caught and logged)
       const result = await caller.signOut()
-
       expect(result).toEqual({ success: true })
     })
   })

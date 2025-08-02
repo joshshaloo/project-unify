@@ -156,9 +156,5 @@ export const mockDatabaseError = () => {
   return mockPrisma
 }
 
-// Mock the Prisma client
+// Mock the Prisma client - this will be used by the global setup
 export const mockPrisma = createMockPrismaClient()
-
-vi.mock('@/lib/prisma', () => ({
-  prisma: mockPrisma,
-}))

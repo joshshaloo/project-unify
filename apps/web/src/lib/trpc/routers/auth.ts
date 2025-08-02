@@ -75,6 +75,12 @@ export const authRouter = createTRPCRouter({
             code: 'NOT_IMPLEMENTED',
             message: 'Invite codes not yet implemented',
           })
+        } else {
+          // Require either clubName or inviteCode
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Either clubName or inviteCode is required',
+          })
         }
 
         return updatedUser
@@ -107,8 +113,13 @@ export const authRouter = createTRPCRouter({
 
   // Sign out (client-side helper)
   signOut: protectedProcedure.mutation(async () => {
-    const supabase = await createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = await createClient()
+      await supabase.auth.signOut()
+    } catch (error) {
+      // Log error but don't fail the request - sign out should always succeed from user perspective
+      console.error('Sign out error:', error)
+    }
     return { success: true }
   }),
 })

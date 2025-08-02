@@ -180,18 +180,8 @@ export const mockNoUser = () => {
   })
 }
 
-// Mock the Supabase SSR client creation
+// Export a mock createClient function that can be imported and used in tests
 export const mockCreateClient = vi.fn()
 
 // Default mock implementation - will be overridden in tests
 mockCreateClient.mockResolvedValue(createMockSupabaseClient())
-
-// Mock the entire Supabase server module
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: mockCreateClient,
-}))
-
-// Mock Supabase SSR
-vi.mock('@supabase/ssr', () => ({
-  createServerClient: vi.fn(),
-}))

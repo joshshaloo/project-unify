@@ -1,14 +1,42 @@
 // HTMLFormElement.requestSubmit polyfill for jsdom
-Object.defineProperty(HTMLFormElement.prototype, 'requestSubmit', {
-  value: function(submitter?: HTMLElement) {
+if (!HTMLFormElement.prototype.requestSubmit) {
+  HTMLFormElement.prototype.requestSubmit = function(submitter?: HTMLElement) {
+    if (submitter && submitter.form !== this) {
+      throw new Error('Failed to execute \'requestSubmit\' on \'HTMLFormElement\': The specified element is not owned by this form element.')
+    }
+    
     const event = new Event('submit', { bubbles: true, cancelable: true })
-    Object.defineProperty(event, 'submitter', { 
+    
+    // Add submitter property to the event
+    Object.defineProperty(event, 'submitter', {
       value: submitter || null,
       writable: false,
-      enumerable: true
+      enumerable: true,
+      configurable: true
     })
+    
     this.dispatchEvent(event)
-  },
-  writable: true,
-  configurable: true
-})
+  }
+}
+
+// Also define directly on HTMLFormElement to override JSDOM's implementation
+if (typeof HTMLFormElement !== 'undefined') {
+  const originalRequestSubmit = HTMLFormElement.prototype.requestSubmit
+  HTMLFormElement.prototype.requestSubmit = function(submitter?: HTMLElement) {
+    if (submitter && submitter.form !== this) {
+      throw new Error('Failed to execute \'requestSubmit\' on \'HTMLFormElement\': The specified element is not owned by this form element.')
+    }
+    
+    const event = new Event('submit', { bubbles: true, cancelable: true })
+    
+    // Add submitter property to the event
+    Object.defineProperty(event, 'submitter', {
+      value: submitter || null,
+      writable: false,
+      enumerable: true,
+      configurable: true
+    })
+    
+    this.dispatchEvent(event)
+  }
+}

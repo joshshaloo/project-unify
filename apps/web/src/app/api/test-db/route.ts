@@ -1,34 +1,37 @@
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '../../../lib/prisma'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    
     // Test database connection by fetching clubs
-    const { data: clubs, error } = await supabase
-      .from('Club')
-      .select('id, name, createdAt')
-      .limit(5)
-    
-    if (error) {
-      console.error('Supabase error:', error)
-      return NextResponse.json(
-        { error: 'Database connection failed', details: error.message },
-        { status: 500 }
-      )
-    }
+    const clubs = await prisma.club.findMany({
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        _count: {
+          select: {
+            teams: true,
+            userClubs: true
+          }
+        }
+      }
+    })
     
     return NextResponse.json({
       status: 'connected',
-      message: 'Successfully connected to Supabase!',
-      clubs: clubs || [],
+      message: 'Successfully connected to database via Prisma!',
+      clubs,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Database error:', error)
     return NextResponse.json(
-      { error: 'Unexpected error occurred' },
+      { 
+        error: 'Database connection failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }

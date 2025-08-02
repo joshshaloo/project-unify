@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { createTRPCRouter, publicProcedure, protectedProcedure } from '../procedures'
 import { TRPCError } from '@trpc/server'
 import { createClient } from '@/lib/supabase/server'
+import type { PrismaClient } from '@prisma/client'
 
 export const authRouter = createTRPCRouter({
   // Get the current user
@@ -38,7 +39,7 @@ export const authRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Start a transaction
-      const result = await ctx.prisma.$transaction(async (tx) => {
+      const result = await ctx.prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
         // Update user profile
         const updatedUser = await tx.user.update({
           where: { id: ctx.user.id },

@@ -143,7 +143,7 @@ export const aiRouter = createTRPCRouter({
           focus: input.focus,
           playerCount: team.players.length,
           equipment: input.equipment,
-          previousSessions: recentSessions.map((s) => ({
+          previousSessions: recentSessions.map((s: any) => ({
             date: s.date,
             focus: s.plan && typeof s.plan === 'object' && 'focus' in s.plan 
               ? (s.plan.focus as string[]) 

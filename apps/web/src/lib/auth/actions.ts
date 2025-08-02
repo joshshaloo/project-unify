@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
+import type { PrismaClient } from '@prisma/client'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -68,7 +69,7 @@ export async function signup(formData: FormData) {
   if (authData.user) {
     // Create user in our database with transaction
     try {
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
           // Create user
           const user = await tx.user.create({
             data: {

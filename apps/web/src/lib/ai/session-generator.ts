@@ -1,4 +1,4 @@
-import { openai, type SessionGenerationParams, type GeneratedSession } from './openai';
+import { getOpenAI, type SessionGenerationParams, type GeneratedSession } from './openai';
 import { z } from 'zod';
 
 // Schema for validating AI response
@@ -55,7 +55,7 @@ For each drill, provide:
 Ensure all activities are age-appropriate and focus on fun while developing skills.`;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: [
         { role: 'system', content: systemPrompt },

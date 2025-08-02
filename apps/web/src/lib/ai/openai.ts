@@ -1,9 +1,16 @@
 import OpenAI from 'openai';
 
-// Initialize OpenAI client
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialize OpenAI client
+let openaiInstance: OpenAI | null = null;
+
+export const getOpenAI = () => {
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-build',
+    });
+  }
+  return openaiInstance;
+};
 
 // Type definitions for session generation
 export interface SessionGenerationParams {

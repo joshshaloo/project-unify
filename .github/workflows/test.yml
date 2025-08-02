@@ -147,7 +147,7 @@ jobs:
         working-directory: apps/web
 
       - name: Run unit tests
-        run: pnpm test --coverage
+        run: pnpm test:coverage
         working-directory: apps/web
 
       - name: Upload coverage reports
@@ -233,7 +233,7 @@ jobs:
         working-directory: apps/web
 
       - name: Run integration tests
-        run: pnpm test --run --reporter=verbose --testNamePattern="integration|api"
+        run: pnpm test -- --run --reporter=verbose -t "integration|api"
         working-directory: apps/web
 
   e2e-tests:

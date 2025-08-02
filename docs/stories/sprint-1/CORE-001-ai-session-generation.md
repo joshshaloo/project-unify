@@ -4,6 +4,7 @@
 **Points:** 8  
 **Priority:** P0 (Blocker)  
 **Dependencies:** TECH-002, AUTH-002  
+**Status:** In Progress  
 
 ## Description
 Implement the core AI Planning Engine that generates training session plans based on club curriculum, team details, and coach input. This is the primary value proposition of the platform.
@@ -183,3 +184,57 @@ export const sessionRouter = router({
 - Collect coach feedback on quality
 - Plan for fine-tuning option
 - Consider fallback to GPT-3.5 for cost
+
+## Dev Agent Record
+
+### Agent Model Used
+- Claude Opus 4
+
+### Implementation Progress
+
+#### n8n Workflow Implementation (Completed)
+- ✅ Created Coach Winston workflow in n8n (Workflow ID: uRB4YeJC6UWqm98H)
+- ✅ Webhook endpoint configured: https://n8n.shaloo.io/webhook/coach-winston
+- ✅ Input validation with comprehensive error handling
+- ✅ Context retrieval from Supabase (teams table + session history)
+- ✅ Coach Winston personality and prompt engineering implemented
+- ✅ OpenAI GPT-4 integration with structured JSON output
+- ✅ Session storage in Supabase training_sessions table
+- ✅ Proper error responses for Next.js integration
+
+#### Next.js Integration (Completed)
+- ✅ Create tRPC endpoint to call n8n webhook
+- ✅ Modified existing generateSession procedure in aiRouter
+- ✅ Added n8n client service with request/response validation
+- ✅ Implemented fallback to direct OpenAI when n8n unavailable
+- ✅ Added environment variable configuration
+- [ ] Add session generation UI component
+- [ ] Implement loading states and error handling
+- [ ] Add session editing capabilities
+
+### Debug Log References
+- n8n workflow created successfully with ID: uRB4YeJC6UWqm98H
+- Webhook URL: https://n8n.shaloo.io/webhook/coach-winston
+- Required Supabase tables: teams, training_sessions
+
+### Completion Notes
+- n8n workflow follows the Base Agent Template pattern from architecture
+- Coach Winston personality includes 20+ years experience, player development focus
+- Structured JSON response format defined for Next.js integration
+- Error handling includes validation, API failures, and database errors
+
+### File List
+- Modified: /docs/stories/sprint-1/CORE-001-ai-session-generation.md
+- Created: /apps/web/src/lib/ai/n8n-client.ts
+- Modified: /apps/web/src/lib/trpc/routers/ai.ts
+- Modified: /apps/web/.env.example
+- Modified: /apps/web/.env.local
+- n8n Workflow: Coach Winston (ID: uRB4YeJC6UWqm98H) - external system
+
+### Change Log
+- 2025-08-02: Created Coach Winston n8n workflow for AI session generation
+- 2025-08-02: Configured webhook endpoint and error handling
+- 2025-08-02: Defined API contract for Next.js integration
+- 2025-08-02: Implemented Next.js tRPC integration with n8n client
+- 2025-08-02: Added fallback mechanism to direct OpenAI when n8n unavailable
+- 2025-08-02: All TypeScript compilation passes

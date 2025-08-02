@@ -1,8 +1,3 @@
 {
-  "projects": {
-    "default": {
-      "framework": "nextjs",
-      "root": "apps/web"
-    }
-  }
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet ."
 }

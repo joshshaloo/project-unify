@@ -68,6 +68,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma types
+        run: pnpm prisma generate
+        working-directory: apps/web
+
       - name: Type check
         run: pnpm run typecheck
         working-directory: apps/web
@@ -124,6 +128,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma types
+        run: pnpm prisma generate
+        working-directory: apps/web
 
       - name: Setup test environment
         run: |
@@ -198,6 +206,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma types
+        run: pnpm prisma generate
+        working-directory: apps/web
+
       - name: Setup test environment
         run: |
           echo "NODE_ENV=test" >> $GITHUB_ENV
@@ -271,6 +283,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma types
+        run: pnpm prisma generate
+        working-directory: apps/web
+
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/web
@@ -340,6 +356,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma types
+        run: pnpm prisma generate
+        working-directory: apps/web
 
       - name: Build application
         run: pnpm build

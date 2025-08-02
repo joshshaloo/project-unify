@@ -3,8 +3,7 @@ import { createMockTRPCContext } from '@/test/utils/test-utils'
 import { TRPCError } from '@trpc/server'
 import { createTestUser, createTestClub, createTestUserClub } from '@/test/factories'
 
-// Mock the createClient function - use the shared mock
-vi.mock('@/lib/supabase/server')
+// Use the shared mock from setup
 
 // Import after mocking
 import { authRouter } from './auth'
@@ -36,7 +35,7 @@ describe('Auth Router', () => {
       ctx.user = null
 
       await expect(caller.me()).rejects.toThrow(TRPCError)
-      await expect(caller.me()).rejects.toThrow('UNAUTHORIZED')
+      await expect(caller.me()).rejects.toThrow('You must be logged in to access this resource')
     })
   })
 
@@ -167,13 +166,7 @@ describe('Auth Router', () => {
         name: 'John Doe',
         role: 'parent',
         inviteCode: 'INVITE123',
-      })).rejects.toThrow(TRPCError)
-      
-      await expect(caller.completeOnboarding({
-        name: 'John Doe',
-        role: 'parent',
-        inviteCode: 'INVITE123',
-      })).rejects.toThrow('NOT_IMPLEMENTED')
+      })).rejects.toThrow('Invite codes not yet implemented')
     })
 
     it('should validate required fields', async () => {
@@ -339,15 +332,15 @@ describe('Auth Router', () => {
       ctx.user = null
 
       // All protected procedures should throw UNAUTHORIZED
-      await expect(caller.me()).rejects.toThrow('UNAUTHORIZED')
-      await expect(caller.updateProfile({ name: 'Test' })).rejects.toThrow('UNAUTHORIZED')
+      await expect(caller.me()).rejects.toThrow('You must be logged in to access this resource')
+      await expect(caller.updateProfile({ name: 'Test' })).rejects.toThrow('You must be logged in to access this resource')
       await expect(caller.completeOnboarding({
         name: 'Test',
         role: 'head_coach',
         clubName: 'Test Club',
-      })).rejects.toThrow('UNAUTHORIZED')
-      await expect(caller.myClubs()).rejects.toThrow('UNAUTHORIZED')
-      await expect(caller.signOut()).rejects.toThrow('UNAUTHORIZED')
+      })).rejects.toThrow('You must be logged in to access this resource')
+      await expect(caller.myClubs()).rejects.toThrow('You must be logged in to access this resource')
+      await expect(caller.signOut()).rejects.toThrow('You must be logged in to access this resource')
     })
   })
 })

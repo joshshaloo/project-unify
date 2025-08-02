@@ -38,10 +38,12 @@ export const renderWithProviders = (
 }
 
 // Mock form data utility
-export const createMockFormData = (data: Record<string, string>) => {
+export const createMockFormData = (data: Record<string, string | undefined>) => {
   const formData = new FormData()
   Object.entries(data).forEach(([key, value]) => {
-    formData.append(key, value)
+    if (value !== undefined) {
+      formData.append(key, value)
+    }
   })
   return formData
 }

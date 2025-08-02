@@ -185,22 +185,27 @@ export async function signOut() {
 }
 
 export async function getUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) return null
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error || !user) return null
 
-  // Get full user data from our database
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.id },
-    include: {
-      clubs: {
-        include: {
-          club: true
+    // Get full user data from our database
+    const dbUser = await prisma.user.findUnique({
+      where: { supabaseId: user.id },
+      include: {
+        clubs: {
+          include: {
+            club: true
+          }
         }
       }
-    }
-  })
+    })
 
-  return dbUser
+    return dbUser
+  } catch (error) {
+    console.error('Get user error:', error)
+    return null
+  }
 }

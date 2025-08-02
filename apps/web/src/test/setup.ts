@@ -130,5 +130,27 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 // Mock Supabase server client - this will be overridden by test-specific mocks
-vi.mock('@/lib/supabase/server')
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn().mockResolvedValue({
+    auth: {
+      signInWithPassword: vi.fn().mockResolvedValue({ data: null, error: null }),
+      signUp: vi.fn().mockResolvedValue({ data: null, error: null }),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
+      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+    },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+      maybeSingle: vi.fn(),
+    })),
+  })
+}))
 

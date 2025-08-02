@@ -55,7 +55,16 @@
       "mcp__n8n-mcp__n8n_get_workflow_structure",
       "mcp__n8n-mcp__n8n_get_workflow",
       "mcp__n8n-mcp__n8n_update_full_workflow",
-      "mcp__n8n-mcp__n8n_list_available_tools"
+      "mcp__n8n-mcp__n8n_list_available_tools",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm vitest:*)",
+      "Bash(find:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(mv:*)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(npx playwright test:*)"
     ],
     "deny": []
   },

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -17,7 +18,7 @@ import {
 // Get the mocked versions
 const mockCreateClient = vi.mocked(createClient)
 const mockRedirect = vi.mocked(redirect)
-const mockPrisma = vi.mocked(prisma)
+const mockPrisma = prisma as any
 
 // Mock Next.js functions - redirect throws an error in Next.js
 vi.mock('next/navigation', () => ({
@@ -40,7 +41,7 @@ describe('Auth Actions', () => {
     mockPrisma.invitation.findUnique.mockResolvedValue(null)
     mockPrisma.invitation.update.mockResolvedValue(null as any)
     mockPrisma.userClub.create.mockResolvedValue(null as any)
-    mockPrisma.$transaction.mockImplementation(async (callback) => {
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => Promise<any>) => {
       return callback(mockPrisma)
     })
     

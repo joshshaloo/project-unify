@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Test data factories for creating consistent test data
 import { faker } from '@faker-js/faker'
 

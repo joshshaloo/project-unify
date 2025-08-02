@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createMockTRPCContext } from '@/test/utils/test-utils'
 import { TRPCError } from '@trpc/server'
@@ -128,7 +129,7 @@ describe('Auth Router', () => {
       ctx.user = testUser
       
       // Mock transaction
-      const mockTransaction = vi.fn().mockImplementation(async (callback) => {
+      const mockTransaction = vi.fn().mockImplementation(async (callback: (tx: any) => Promise<any>) => {
         const tx = {
           user: {
             update: vi.fn().mockResolvedValue({
@@ -168,7 +169,7 @@ describe('Auth Router', () => {
       ctx.user = testUser
 
       // Mock transaction to call the actual function so business logic error gets thrown
-      ctx.prisma.$transaction = vi.fn().mockImplementation(async (callback) => {
+      ctx.prisma.$transaction = vi.fn().mockImplementation(async (callback: (tx: any) => Promise<any>) => {
         // Call the callback with a mock transaction object that won't be used
         return callback({
           user: { update: vi.fn() },
@@ -203,7 +204,7 @@ describe('Auth Router', () => {
       })).rejects.toThrow()
 
       // Mock transaction to call the actual function so business logic error gets thrown
-      ctx.prisma.$transaction = vi.fn().mockImplementation(async (callback) => {
+      ctx.prisma.$transaction = vi.fn().mockImplementation(async (callback: (tx: any) => Promise<any>) => {
         // Call the callback with a mock transaction object that won't be used
         return callback({
           user: { update: vi.fn() },
@@ -310,7 +311,7 @@ describe('Auth Router', () => {
       }
       
       // Set up the mock for this specific test
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      vi.mocked(createClient).mockResolvedValue(mockSupabase as any)
 
       const result = await caller.signOut()
 
@@ -328,7 +329,7 @@ describe('Auth Router', () => {
           signOut: vi.fn().mockResolvedValue({ error: { message: 'Sign out failed' } }),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      vi.mocked(createClient).mockResolvedValue(mockSupabase as any)
 
       // Should still return success even if Supabase fails
       const result = await caller.signOut()
@@ -345,7 +346,7 @@ describe('Auth Router', () => {
           signOut: vi.fn().mockRejectedValue(new Error('Network error')),
         },
       }
-      mockCreateClient.mockResolvedValue(mockSupabase)
+      vi.mocked(createClient).mockResolvedValue(mockSupabase as any)
 
       // Should still return success even if request fails (error is caught and logged)
       const result = await caller.signOut()

@@ -69,7 +69,10 @@
       "Bash(gh pr checks:*)",
       "Bash(npm run build:*)",
       "Bash(npx next build:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(grep:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   },

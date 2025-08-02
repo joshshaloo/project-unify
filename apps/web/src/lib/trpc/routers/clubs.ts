@@ -19,7 +19,7 @@ export const clubsRouter = createTRPCRouter({
       },
     });
 
-    return userClubs.map((uc) => ({
+    return userClubs.map((uc: typeof userClubs[0]) => ({
       ...uc.club,
       role: uc.role,
       joinedAt: uc.joinedAt,
@@ -200,7 +200,7 @@ export const clubsRouter = createTRPCRouter({
         },
       });
 
-      return members.map((member) => ({
+      return members.map((member: typeof members[0]) => ({
         ...member.user,
         role: member.role,
         joinedAt: member.joinedAt,

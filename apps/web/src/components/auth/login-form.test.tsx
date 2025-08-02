@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/test/utils/test-utils'
 import { LoginForm } from './login-form'
-import * as authActions from '@/lib/auth/actions'
+// import * as authActions from '@/lib/auth/actions' // imported but not used directly
 
 // Mock the auth actions
 vi.mock('@/lib/auth/actions', () => ({
@@ -80,8 +80,8 @@ describe('LoginForm', () => {
   it('should handle form state changes properly', async () => {
     renderWithProviders(<LoginForm />)
 
-    const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
+    // const emailInput = screen.getByLabelText(/email address/i)
+    // const passwordInput = screen.getByLabelText(/password/i)
     const rememberCheckbox = screen.getByLabelText(/remember me/i)
 
     // Form should start with no errors displayed

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import '@testing-library/jest-dom'
 import { vi, afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
@@ -10,16 +11,20 @@ import './polyfills'
 if (typeof HTMLFormElement !== 'undefined' && typeof window !== 'undefined') {
   // Override JSDOM's stubbed implementation to handle React Server Actions
   HTMLFormElement.prototype.requestSubmit = function(submitter?: HTMLElement) {
-    if (submitter && submitter.form !== this) {
-      throw new Error('Failed to execute \'requestSubmit\' on \'HTMLFormElement\': The specified element is not owned by this form element.')
+    if (submitter) {
+      const form = (submitter as any).form
+      if (form && form !== this) {
+        throw new Error('Failed to execute \'requestSubmit\' on \'HTMLFormElement\': The specified element is not owned by this form element.')
+      }
     }
     
     // Check if this form has a React Server Action
-    if (this.action && typeof this.action === 'function') {
+    if ((this as any).action && typeof (this as any).action === 'function') {
       // For React Server Actions, create FormData and call the action directly
       const formData = new FormData(this)
       try {
-        this.action(formData)
+        const action = (this as any).action
+        action(formData)
       } catch (error) {
         // Silently handle action errors in tests
       }

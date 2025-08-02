@@ -20,6 +20,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,md,json}\"",
     "prepare": "husky install",
+    "db:generate": "pnpm --filter @soccer/api db:generate",
+    "db:push": "pnpm --filter @soccer/api db:push",
     "db:migrate": "pnpm --filter @soccer/api db:migrate",
     "db:migrate:dev": "pnpm --filter @soccer/api db:migrate:dev",
     "db:seed": "pnpm --filter @soccer/api db:seed",

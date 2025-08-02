@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { trpc } from '@/lib/trpc'
+// import { useState } from 'react' // Commented out since not used  
+// import { trpc } from '@/lib/trpc' // Commented out since not used
 
 export default function TestInvitationPage() {
-  const [inviteUrl, setInviteUrl] = useState('')
+  // const [inviteUrl, setInviteUrl] = useState('') // Commented out since not used
   
   // This is a test page - in production, only authenticated users with proper roles can create invitations
-  const createTestInvitation = trpc.invitation.create.useMutation({
-    onSuccess: (data) => {
-      setInviteUrl(data.inviteUrl)
-    }
-  })
+  // Commented out to fix ESLint unused variable error - uncomment when implementing real functionality
+  // const createTestInvitation = trpc.invitation.create.useMutation({
+  //   onSuccess: (data) => {
+  //     setInviteUrl(data.inviteUrl)
+  //   }
+  // })
 
   const handleCreateInvitation = () => {
     // This would need a real clubId and authenticated user
@@ -60,6 +61,7 @@ export default function TestInvitationPage() {
             </div>
           </div>
 
+          {/* Invitation display commented out since inviteUrl state is not used
           {inviteUrl && (
             <div className="border-t pt-4">
               <h3 className="text-lg font-medium">Generated Invitation:</h3>
@@ -68,6 +70,7 @@ export default function TestInvitationPage() {
               </div>
             </div>
           )}
+          */}
 
           <button
             onClick={handleCreateInvitation}

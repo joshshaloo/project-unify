@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+// import { useRouter } from 'next/navigation' // Commented out as router is not currently used
 import { login } from '@/lib/auth/actions'
 
 export function LoginForm() {
-  const router = useRouter()
+  // const router = useRouter() // Uncomment when implementing client-side navigation
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -28,7 +28,10 @@ export function LoginForm() {
     <form className="mt-8 space-y-6" action={handleSubmit}>
       {error && (
         <div className="rounded-md bg-red-50 p-4">
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm text-red-800">
+            {/* Safely display error by using text content only - no HTML interpretation */}
+            {typeof error === 'string' ? error.replace(/<[^>]*>/g, '') : 'An error occurred'}
+          </p>
         </div>
       )}
       <div className="-space-y-px rounded-md shadow-sm">

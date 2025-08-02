@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/test/utils/test-utils'
 import { SignupForm } from './signup-form'
 import * as authActions from '@/lib/auth/actions'
-import { AuthActionResult } from '@/lib/types/auth'
 
 // Mock the auth actions
 vi.mock('@/lib/auth/actions', () => ({

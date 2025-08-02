@@ -67,7 +67,8 @@
       "Bash(npx playwright test:*)",
       "Bash(gh run view:*)",
       "Bash(gh pr checks:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx next build:*)"
     ],
     "deny": []
   },

@@ -16,7 +16,7 @@ export const invitationRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Check if user has permission to invite to this club
-      const userClub = ctx.user.clubs?.find((uc: any) => uc.clubId === input.clubId)
+      const userClub = ctx.user?.clubs?.find((uc) => uc.clubId === input.clubId)
       
       if (!userClub || !['admin', 'head_coach'].includes(userClub.role)) {
         throw new TRPCError({
@@ -42,7 +42,7 @@ export const invitationRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Check if user belongs to this club
-      const userClub = ctx.user.clubs?.find((uc: any) => uc.clubId === input.clubId)
+      const userClub = ctx.user?.clubs?.find((uc) => uc.clubId === input.clubId)
       
       if (!userClub) {
         throw new TRPCError({
@@ -55,7 +55,7 @@ export const invitationRouter = createTRPCRouter({
       
       // Filter out sensitive information for non-admins
       if (!['admin', 'head_coach'].includes(userClub.role)) {
-        return invitations.map((inv: any) => ({
+        return invitations.map((inv) => ({
           ...inv,
           email: inv.email ? '***' : '',
           token: '***',
@@ -86,7 +86,7 @@ export const invitationRouter = createTRPCRouter({
       }
 
       // Check if user has permission
-      const userClub = ctx.user.clubs?.find((uc: any) => uc.clubId === invitation.clubId)
+      const userClub = ctx.user?.clubs?.find((uc) => uc.clubId === invitation.clubId)
       
       if (!userClub || !['admin', 'head_coach'].includes(userClub.role)) {
         throw new TRPCError({

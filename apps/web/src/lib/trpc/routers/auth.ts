@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { createTRPCRouter, publicProcedure, protectedProcedure } from '../procedures'
+import { createTRPCRouter, protectedProcedure } from '../procedures'
 import { TRPCError } from '@trpc/server'
 import { createClient } from '@/lib/supabase/server'
 import type { PrismaClient } from '@prisma/client'

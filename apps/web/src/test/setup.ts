@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { vi, beforeEach, afterEach } from 'vitest'
+import { vi, afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import React from 'react'
 import './polyfills'
@@ -35,8 +35,7 @@ vi.mock('next/cache', () => ({
 
 // Mock Next.js image
 vi.mock('next/image', () => ({
-  default: (props: any) => {
-    // eslint-disable-next-line @next/next/no-img-element
+  default: (props: Record<string, unknown>) => {
     return React.createElement('img', props)
   },
 }))

@@ -2,7 +2,7 @@ import { getUser, signOut } from '@/lib/auth/actions'
 import { redirect } from 'next/navigation'
 import { RoleBadge } from '@/components/auth/role-badge'
 import { api } from '@/lib/trpc/server-api'
-import { ClubWithUserData } from '@/lib/types/club'
+import type { ClubWithUserData } from '@/lib/types/club'
 
 export default async function DashboardPage() {
   const user = await getUser()

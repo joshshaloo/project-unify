@@ -8,7 +8,7 @@ vi.mock('@/lib/supabase/server')
 
 // Import after mocking
 import { authRouter } from './auth'
-import { mockCreateClient, createMockSupabaseClient } from '@/test/mocks/supabase'
+import { mockCreateClient } from '@/test/mocks/supabase'
 
 describe('Auth Router', () => {
   let ctx: any

@@ -21,7 +21,7 @@ export interface User {
   supabaseId: string
   onboardingCompleted: boolean
   preferredLanguage: string
-  notificationSettings: Record<string, any>
+  notificationSettings: Record<string, unknown>
   createdAt: Date
   updatedAt: Date
   clubs?: UserClub[]
@@ -40,7 +40,7 @@ export interface UserClub {
     name: string
     logoUrl?: string | null
     primaryColor?: string | null
-    settings: Record<string, any>
+    settings: Record<string, unknown>
     subscription: string
     createdAt: Date
     updatedAt: Date

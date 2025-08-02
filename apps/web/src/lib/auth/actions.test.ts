@@ -14,8 +14,7 @@ import {
   mockFailedSignup,
   mockNoUser,
   mockUser,
-  mockDbUser,
-  createMockSupabaseClient
+  mockDbUser
 } from '@/test/mocks/supabase'
 import { 
   mockPrisma,

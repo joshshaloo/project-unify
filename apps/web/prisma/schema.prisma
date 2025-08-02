@@ -29,6 +29,9 @@ model Club {
   templates SessionTemplate[]
   invitations Invitation[]
 
+  @@index([name])
+  @@index([subscription])
+  @@index([createdAt])
   @@map("clubs")
 }
 
@@ -65,6 +68,9 @@ model UserClub {
   club Club @relation(fields: [clubId], references: [id])
 
   @@unique([userId, clubId])
+  @@index([userId, status])
+  @@index([clubId, status])
+  @@index([role])
   @@map("user_clubs")
 }
 
@@ -135,6 +141,10 @@ model Session {
   attendances SessionAttendance[]
   evaluations PlayerEvaluation[]
 
+  @@index([clubId, date])
+  @@index([teamId, date])
+  @@index([status])
+  @@index([type])
   @@map("sessions")
 }
 

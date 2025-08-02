@@ -232,7 +232,7 @@ export const aiRouter = createTRPCRouter({
         duration: z.number(),
       })
     )
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx: _ctx, input }) => {
       // This would typically call the AI to suggest drills
       // For now, return mock suggestions
       return {

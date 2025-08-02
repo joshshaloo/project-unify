@@ -2,7 +2,7 @@
  * Club-related TypeScript type definitions
  */
 
-import { JsonValue } from '@prisma/client/runtime/library'
+import type { JsonValue } from '@prisma/client/runtime/library'
 
 // Base Club type from Prisma schema
 export interface Club {

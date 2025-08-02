@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+// import { useRouter } from 'next/navigation' // Commented out as router is not currently used
 import { signup } from '@/lib/auth/actions'
 
 interface SignupFormWithInvitationProps {
@@ -14,7 +14,7 @@ interface SignupFormWithInvitationProps {
 }
 
 export function SignupFormWithInvitation({ inviteToken, invitationData }: SignupFormWithInvitationProps) {
-  const router = useRouter()
+  // const router = useRouter() // Uncomment when implementing client-side navigation
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -40,7 +40,10 @@ export function SignupFormWithInvitation({ inviteToken, invitationData }: Signup
       )}
       {error && (
         <div className="rounded-md bg-red-50 p-4">
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm text-red-800">
+            {/* Safely display error by using text content only - no HTML interpretation */}
+            {typeof error === 'string' ? error.replace(/<[^>]*>/g, '') : 'An error occurred'}
+          </p>
         </div>
       )}
       <div className="space-y-4 rounded-md shadow-sm">

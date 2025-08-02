@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { RoleBadge } from '@/components/auth/role-badge'
-import { ClubWithUserData } from '@/lib/types/club'
+import type { ClubWithUserData } from '@/lib/types/club'
 
 export default function ClubSelectPage() {
   const router = useRouter()

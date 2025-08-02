@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { 
   createTRPCRouter, 
-  protectedProcedure,
-  publicProcedure
+  protectedProcedure
 } from '../procedures';
 import { TRPCError } from '@trpc/server';
 import { ROLES, hasMinimumRole, getUserRoleInClub } from '../../auth/roles';
@@ -20,7 +19,7 @@ export const clubsRouter = createTRPCRouter({
       },
     });
 
-    return userClubs.map((uc: any) => ({
+    return userClubs.map((uc) => ({
       ...uc.club,
       role: uc.role,
       joinedAt: uc.joinedAt,
@@ -96,7 +95,7 @@ export const clubsRouter = createTRPCRouter({
         name: z.string().min(1).optional(),
         logoUrl: z.string().optional(),
         primaryColor: z.string().optional(),
-        settings: z.record(z.any()).optional(),
+        settings: z.record(z.string(), z.any()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -201,7 +200,7 @@ export const clubsRouter = createTRPCRouter({
         },
       });
 
-      return members.map((member: any) => ({
+      return members.map((member) => ({
         ...member.user,
         role: member.role,
         joinedAt: member.joinedAt,

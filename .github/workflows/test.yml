@@ -137,6 +137,7 @@ jobs:
         run: |
           echo "NODE_ENV=test" >> $GITHUB_ENV
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
+          echo "DIRECT_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_URL=https://test.supabase.co" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=test-service-role-key" >> $GITHUB_ENV
@@ -214,6 +215,7 @@ jobs:
         run: |
           echo "NODE_ENV=test" >> $GITHUB_ENV
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
+          echo "DIRECT_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_URL=https://test.supabase.co" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=test-service-role-key" >> $GITHUB_ENV
@@ -295,6 +297,7 @@ jobs:
         run: |
           echo "NODE_ENV=test" >> $GITHUB_ENV
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
+          echo "DIRECT_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_URL=https://test.supabase.co" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=test-service-role-key" >> $GITHUB_ENV
@@ -368,6 +371,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          DIRECT_URL: postgresql://user:pass@localhost:5432/db
 
   test-summary:
     runs-on: ubuntu-latest

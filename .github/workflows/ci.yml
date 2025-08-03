@@ -36,7 +36,9 @@ jobs:
         run: pnpm install --frozen-lockfile
         
       - name: Generate Prisma types
-        run: pnpm --filter @soccer/web prisma generate
+        run: |
+          cd apps/web
+          pnpm prisma generate
         
       - name: Type Check
         run: pnpm typecheck

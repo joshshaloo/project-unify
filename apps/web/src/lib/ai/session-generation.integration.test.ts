@@ -648,8 +648,7 @@ describe('AI Session Generation Integration Tests', () => {
     })
 
     it('should validate user role before allowing generation', async () => {
-      const authRoles = await import('../auth/roles')
-      const { getUserRoleInClub, hasMinimumRole } = authRoles
+      const { getUserRoleInClub, hasMinimumRole } = vi.mocked(await import('../auth/roles'))
       
       getUserRoleInClub.mockReturnValue('parent')
       hasMinimumRole.mockReturnValue(false)

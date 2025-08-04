@@ -64,12 +64,13 @@ COPY --from=builder /app/apps/web/.next/static ./.next/static
 
 # Copy startup script and Prisma files for migrations
 COPY --from=builder /app/apps/web/scripts/start-prod.sh ./
+COPY --from=builder /app/apps/web/scripts/docker-entrypoint.sh ./
 COPY --from=builder /app/apps/web/prisma ./prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/node_modules/.pnpm/prisma@*/node_modules/prisma ./node_modules/prisma
 
 # Ensure script is executable
-RUN chmod +x start-prod.sh
+RUN chmod +x start-prod.sh docker-entrypoint.sh
 
 USER nextjs
 
@@ -82,4 +83,4 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node healthcheck.js
 
-CMD ["./start-prod.sh"]
+CMD ["./docker-entrypoint.sh"]

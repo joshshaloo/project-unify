@@ -1,21 +1,35 @@
 version: '3.8'
 
+secrets:
+  postgres_password:
+    external: true
+    name: soccer_prod_postgres_password
+  nextauth_secret:
+    external: true
+    name: soccer_prod_nextauth_secret
+  n8n_password:
+    external: true
+    name: soccer_prod_n8n_password
+  smtp_password:
+    external: true
+    name: soccer_prod_smtp_password
+
 services:
   app:
     image: ${IMAGE:-ghcr.io/joshshaloo/soccer/project-unify:latest}
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
-      NEXTAUTH_URL: ${APP_URL}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: https://app.clubomatic.ai
       EMAIL_SERVER_HOST: ${SMTP_HOST}
       EMAIL_SERVER_PORT: ${SMTP_PORT}
       EMAIL_SERVER_USER: ${SMTP_USER}
-      EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD}
       EMAIL_FROM: ${EMAIL_FROM}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Database URL and secrets are loaded from Docker secrets by entrypoint
+    secrets:
+      - postgres_password
+      - nextauth_secret
+      - smtp_password
     volumes:
       - /mnt/truenas/docker_volumes/project-unity/prod/uploads:/app/uploads
     deploy:
@@ -26,6 +40,9 @@ services:
         order: start-first
       restart_policy:
         condition: on-failure
+      placement:
+        constraints:
+          - node.role == worker
     ports:
       - "3010:3000"
     depends_on:
@@ -35,9 +52,11 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: soccer
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
     volumes:
       - /mnt/truenas/docker_volumes/project-unity/prod/postgres:/var/lib/postgresql/data
       - /mnt/truenas/docker_volumes/project-unity/prod/backups:/backups
@@ -46,7 +65,31 @@ services:
     deploy:
       placement:
         constraints:
-          - node.role == manager
+          - node.role == worker
+
+  postgres-init:
+    image: postgres:15-alpine
+    secrets:
+      - postgres_password
+    command: >
+      sh -c '
+      export PGPASSWORD=$$(cat /run/secrets/postgres_password) &&
+      until pg_isready -h postgres -U postgres; do
+        echo "Waiting for postgres...";
+        sleep 2;
+      done;
+      echo "Creating n8n database if it doesn'\''t exist...";
+      psql -h postgres -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '\''n8n'\''" | grep -q 1 || psql -h postgres -U postgres -c "CREATE DATABASE n8n;";
+      echo "Database initialization complete";
+      '
+    deploy:
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.role == worker
+    depends_on:
+      - postgres
 
   redis:
     image: redis:7-alpine
@@ -55,26 +98,34 @@ services:
       - /mnt/truenas/docker_volumes/project-unity/prod/redis:/data
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
 
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:stable
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
-      - N8N_HOST=${N8N_HOST}
-      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_HOST=n8n.clubomatic.ai
+      - N8N_WEBHOOK_URL=https://n8n.clubomatic.ai
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
-      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME}
-      - DB_POSTGRESDB_USER=${POSTGRES_USER}
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=postgres
+      - N8N_BASIC_AUTH_PASSWORD_FILE=/run/secrets/n8n_password
+      - DB_POSTGRESDB_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - n8n_password
+      - postgres_password
+    depends_on:
+      - postgres-init
     volumes:
       - /mnt/truenas/docker_volumes/project-unity/prod/n8n:/home/node/.n8n
     ports:
       - "5680:5678"
-
-networks:
-  default:
-    driver: overlay
-    attachable: true
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker

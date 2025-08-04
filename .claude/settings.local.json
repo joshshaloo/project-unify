@@ -111,7 +111,14 @@
       "Bash(--build-arg DATABASE_URL=\"postgresql://postgres:password@localhost:5432/test\" )",
       "Bash(--build-arg NEXTAUTH_SECRET=\"test-secret-for-build-only\" )",
       "Bash(--build-arg NEXTAUTH_URL=\"http://localhost:3000\" )",
-      "Bash(-t ghcr.io/joshshaloo/soccer/project-unify:validate-test .)"
+      "Bash(-t ghcr.io/joshshaloo/soccer/project-unify:validate-test .)",
+      "Bash(git rev-parse:*)",
+      "Bash(source .env)",
+      "Bash(pip3 install:*)",
+      "Bash(python3:*)",
+      "Bash(DEBUG=1 python3 scripts/portainer_deploy.py bootstrap preview 55c39cc)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   },

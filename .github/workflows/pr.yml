@@ -40,7 +40,8 @@ jobs:
       - name: Determine image tag
         id: tag
         run: |
-          echo "tag=pr-${{ github.event.pull_request.number }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
       
       - name: Validate
         run: make validate

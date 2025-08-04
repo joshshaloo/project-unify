@@ -7,13 +7,14 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-# Colors
+# Colors (use printf for compatibility)
 CYAN := \033[0;36m
 GREEN := \033[0;32m
 YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m
 BOLD := \033[1m
+PRINT := printf
 
 # Project settings
 REGISTRY := ghcr.io
@@ -22,8 +23,8 @@ GIT_SHA := $(shell git rev-parse --short HEAD)
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-# Determine image tag
-TAG ?= $(GIT_BRANCH)-$(GIT_SHA)
+# Determine image tag (always use commit SHA)
+TAG ?= $(GIT_SHA)
 
 #
 # 📚 Help
@@ -94,7 +95,7 @@ endif
 .PHONY: test
 test:
 	@echo "$(CYAN)🧪 Running tests in Docker...$(NC)"
-	@docker build --target tester \
+	@docker build --platform linux/amd64 --target tester \
 		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
 		--build-arg NEXTAUTH_SECRET="test-secret" \
 		--build-arg NEXTAUTH_URL="http://localhost:3000" \
@@ -118,7 +119,7 @@ validate:
 	@echo "$(CYAN)🔍 Running CI validation locally...$(NC)"
 	@echo "This runs the same checks as GitHub Actions"
 	@echo ""
-	@docker build --target tester \
+	@docker build --platform linux/amd64 --target tester \
 		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
 		--build-arg NEXTAUTH_SECRET="test-secret" \
 		--build-arg NEXTAUTH_URL="http://localhost:3000" \
@@ -147,6 +148,18 @@ else
 	@docker exec -it $$(docker ps -qf "name=web") /bin/sh
 endif
 
+## docker-login: Login to GitHub Container Registry
+.PHONY: docker-login
+docker-login:
+	@$(PRINT) "$(CYAN)🔐 Logging into GitHub Container Registry...$(NC)\n"
+	@if [ -f .env ]; then \
+		export $$(grep -v '^#' .env | xargs) && \
+		echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_USER}" --password-stdin; \
+	else \
+		echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_USER}" --password-stdin; \
+	fi
+	@$(PRINT) "$(GREEN)✓ Login successful$(NC)\n"
+
 ## clean: Clean up resources
 .PHONY: clean
 clean:
@@ -164,7 +177,7 @@ clean:
 build:
 	@echo "$(CYAN)🔨 Building Docker image...$(NC)"
 	@echo "Tag: $(IMAGE_NAME):$(TAG)"
-	@docker build -t $(IMAGE_NAME):$(TAG) .
+	@docker build --platform linux/amd64 -t $(IMAGE_NAME):$(TAG) .
 	@echo "$(GREEN)✓ Build complete$(NC)"
 
 ## push: Push Docker image
@@ -174,40 +187,28 @@ push:
 	@docker push $(IMAGE_NAME):$(TAG)
 	@echo "$(GREEN)✓ Push complete$(NC)"
 
+## build-and-push: Build and push Docker image
+.PHONY: build-and-push
+build-and-push: build push
+	@echo "$(GREEN)✓ Build and push complete$(NC)"
+
 ## deploy-preview: Deploy to preview environment
 .PHONY: deploy-preview
 deploy-preview:
 ifndef TAG
-	@echo "$(RED)❌ Please specify TAG: make deploy-preview TAG=develop-abc123$(NC)"
+	@$(PRINT) "$(RED)❌ Please specify TAG: make deploy-preview TAG=abc123$(NC)\n"
 	@exit 1
 endif
-	@echo "$(CYAN)🚀 Deploying to preview...$(NC)"
-	@echo "Image: $(IMAGE_NAME):$(TAG)"
-	@curl -X PUT \
-		-H "X-API-Key: $${PORTAINER_API_KEY}" \
-		-H "Content-Type: application/json" \
-		-d '{"env": [{"name": "IMAGE", "value": "$(IMAGE_NAME):$(TAG)"}]}' \
-		$${PORTAINER_HOST}/api/stacks/soccer-preview?endpointId=1
-	@echo "$(GREEN)✓ Preview deployment triggered$(NC)"
+	@python3 scripts/portainer_deploy.py deploy preview $(TAG)
 
 ## deploy-prod: Deploy to production
 .PHONY: deploy-prod
 deploy-prod:
 ifndef TAG
-	@echo "$(RED)❌ Please specify TAG: make deploy-prod TAG=v1.2.3$(NC)"
+	@$(PRINT) "$(RED)❌ Please specify TAG: make deploy-prod TAG=abc123$(NC)\n"
 	@exit 1
 endif
-	@echo "$(RED)$(BOLD)⚠️  PRODUCTION DEPLOYMENT ⚠️$(NC)"
-	@echo "Image: $(IMAGE_NAME):$(TAG)"
-	@echo -n "Type 'deploy' to confirm: "
-	@read confirm && [ "$$confirm" = "deploy" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
-	@echo "$(CYAN)🚀 Deploying to production...$(NC)"
-	@curl -X PUT \
-		-H "X-API-Key: $${PORTAINER_API_KEY}" \
-		-H "Content-Type: application/json" \
-		-d '{"env": [{"name": "IMAGE", "value": "$(IMAGE_NAME):$(TAG)"}]}' \
-		$${PORTAINER_HOST}/api/stacks/soccer-prod?endpointId=1
-	@echo "$(GREEN)✓ Production deployment triggered$(NC)"
+	@python3 scripts/portainer_deploy.py deploy prod $(TAG)
 
 #
 # 🔧 Advanced (Hidden from main help)
@@ -215,41 +216,24 @@ endif
 
 ## bootstrap-preview: Create initial preview stack in Portainer
 .PHONY: bootstrap-preview
-bootstrap-preview:
-	@echo "$(CYAN)🚀 Creating preview stack in Portainer...$(NC)"
-	@echo "This will create the initial stack. Use deploy-preview to update it."
-	@echo "Creating temporary JSON payload..."
-	@cat docker-stack.preview.yml | \
-		python3 -c "import sys, json; print(json.dumps({'name': 'soccer-preview', 'type': 2, 'endpointId': 1, 'stackFileContent': sys.stdin.read(), 'env': [{'name': 'IMAGE', 'value': '$(IMAGE_NAME):develop'}, {'name': 'POSTGRES_USER', 'value': 'postgres'}, {'name': 'POSTGRES_PASSWORD', 'value': 'preview-password-change-me'}, {'name': 'POSTGRES_DB', 'value': 'soccer'}, {'name': 'NEXTAUTH_SECRET', 'value': 'preview-secret-change-me'}, {'name': 'OPENAI_API_KEY', 'value': 'sk-your-key'}, {'name': 'N8N_USER', 'value': 'admin'}, {'name': 'N8N_PASSWORD', 'value': 'preview-n8n-password'}, {'name': 'N8N_DB_NAME', 'value': 'n8n'}]}))" > /tmp/stack-preview.json
-	@curl -X POST \
-		-H "X-API-Key: $${PORTAINER_API_KEY}" \
-		-H "Content-Type: application/json" \
-		-d @/tmp/stack-preview.json \
-		$${PORTAINER_HOST}/api/stacks?type=2&endpointId=1
-	@rm -f /tmp/stack-preview.json
-	@echo ""
-	@echo "$(GREEN)✓ Preview stack created!$(NC)"
-	@echo "$(YELLOW)Remember to update the environment variables in Portainer!$(NC)"
+bootstrap-preview: build-and-push
+	@$(PRINT) "$(CYAN)🚀 Creating preview stack in Portainer...$(NC)\n"
+	@python3 scripts/portainer_deploy.py bootstrap preview $(GIT_SHA)
 
 ## bootstrap-prod: Create initial production stack in Portainer
 .PHONY: bootstrap-prod
-bootstrap-prod:
-	@echo "$(RED)$(BOLD)⚠️  CREATE PRODUCTION STACK ⚠️$(NC)"
-	@echo -n "Type 'create-production' to confirm: "
-	@read confirm && [ "$$confirm" = "create-production" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
-	@echo "$(CYAN)🚀 Creating production stack in Portainer...$(NC)"
-	@echo "Creating temporary JSON payload..."
-	@cat docker-stack.prod.yml | \
-		python3 -c "import sys, json; print(json.dumps({'name': 'soccer-prod', 'type': 2, 'endpointId': 1, 'stackFileContent': sys.stdin.read(), 'env': [{'name': 'IMAGE', 'value': '$(IMAGE_NAME):latest'}, {'name': 'POSTGRES_USER', 'value': 'postgres'}, {'name': 'POSTGRES_PASSWORD', 'value': 'CHANGE-ME-SECURE-PASSWORD'}, {'name': 'POSTGRES_DB', 'value': 'soccer'}, {'name': 'APP_URL', 'value': 'https://app.clubomatic.ai'}, {'name': 'NEXTAUTH_SECRET', 'value': 'CHANGE-ME-SECURE-SECRET'}, {'name': 'SMTP_HOST', 'value': 'smtp.example.com'}, {'name': 'SMTP_PORT', 'value': '587'}, {'name': 'SMTP_USER', 'value': 'your-smtp-user'}, {'name': 'SMTP_PASSWORD', 'value': 'your-smtp-password'}, {'name': 'EMAIL_FROM', 'value': 'noreply@clubomatic.ai'}, {'name': 'OPENAI_API_KEY', 'value': 'sk-your-production-key'}, {'name': 'N8N_USER', 'value': 'admin'}, {'name': 'N8N_PASSWORD', 'value': 'CHANGE-ME-SECURE-PASSWORD'}, {'name': 'N8N_HOST', 'value': 'n8n.clubomatic.ai'}, {'name': 'N8N_WEBHOOK_URL', 'value': 'https://n8n.clubomatic.ai'}, {'name': 'N8N_DB_NAME', 'value': 'n8n'}, {'name': 'VERSION', 'value': 'latest'}]}))" > /tmp/stack-prod.json
-	@curl -X POST \
-		-H "X-API-Key: $${PORTAINER_API_KEY}" \
-		-H "Content-Type: application/json" \
-		-d @/tmp/stack-prod.json \
-		$${PORTAINER_HOST}/api/stacks?type=2&endpointId=1
-	@rm -f /tmp/stack-prod.json
-	@echo ""
-	@echo "$(GREEN)✓ Production stack created!$(NC)"
-	@echo "$(RED)$(BOLD)IMPORTANT: Update all CHANGE-ME values in Portainer immediately!$(NC)"
+bootstrap-prod: build-and-push
+	@python3 scripts/portainer_deploy.py bootstrap prod $(GIT_SHA)
+
+## portainer-test: Test Portainer API connection
+.PHONY: portainer-test
+portainer-test:
+	@python3 scripts/portainer_deploy.py test
+
+## portainer-status: Show deployed stacks status
+.PHONY: portainer-status
+portainer-status:
+	@python3 scripts/portainer_deploy.py status
 
 ## status: Show running containers
 .PHONY: status
@@ -277,12 +261,3 @@ typecheck:
 .PHONY: lint
 lint:
 	@pnpm lint
-
-## docker-login: Login to GitHub Container Registry
-.PHONY: docker-login
-docker-login:
-	@echo "$(CYAN)🔑 Logging into GitHub Container Registry...$(NC)"
-	@echo "You need a GitHub token with 'write:packages' scope"
-	@echo -n "GitHub Username: " && read username && \
-	echo -n "GitHub Token: " && read -s token && echo && \
-	echo $$token | docker login $(REGISTRY) -u $$username --password-stdin

@@ -91,6 +91,10 @@ jobs:
         
       - name: Build
         run: pnpm build
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/test"
+          NEXTAUTH_SECRET: "test-secret-for-build-only"
+          NEXTAUTH_URL: "http://localhost:3000"
 
   # Build and push PR-specific Docker image
   build-pr-image:

@@ -137,7 +137,7 @@ describe('AI Router', () => {
       hasMinimumRole.mockReturnValue(true)
       ctx.prisma.team.findUnique.mockResolvedValue(mockTeam)
       ctx.prisma.session.findMany.mockResolvedValue([])
-      ctx.prisma.session.create.mockImplementation(({ data }) => 
+      ctx.prisma.session.create.mockImplementation(({ data }: any) => 
         Promise.resolve({
           ...mockCreatedSession,
           plan: data.plan,

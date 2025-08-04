@@ -63,9 +63,9 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./.next/static
 
 # Copy startup script and Prisma files for migrations
-COPY --from=builder /app/apps/web/scripts/start-prod.sh ./
-COPY --from=builder /app/apps/web/scripts/docker-entrypoint.sh ./
-COPY --from=builder /app/apps/web/prisma ./prisma
+COPY --chown=nextjs:nodejs --from=builder /app/apps/web/scripts/start-prod.sh ./
+COPY --chown=nextjs:nodejs --from=builder /app/apps/web/scripts/docker-entrypoint.sh ./
+COPY --chown=nextjs:nodejs --from=builder /app/apps/web/prisma ./prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/node_modules/.pnpm/prisma@*/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+engines@*/node_modules/@prisma/engines ./node_modules/@prisma/engines
@@ -74,9 +74,8 @@ COPY --from=builder /app/node_modules/.pnpm/@prisma+debug@*/node_modules/@prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+get-platform@*/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
 COPY --from=builder /app/node_modules/.pnpm/@prisma+fetch-engine@*/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
 
-# Ensure script is executable and set ownership
-RUN chmod +x start-prod.sh docker-entrypoint.sh && \
-    chown -R nextjs:nodejs .
+# Make scripts executable
+RUN chmod +x start-prod.sh docker-entrypoint.sh
 
 USER nextjs
 

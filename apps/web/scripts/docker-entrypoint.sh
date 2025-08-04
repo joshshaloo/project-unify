@@ -3,8 +3,6 @@
 echo "[ENTRYPOINT] Starting docker-entrypoint.sh..."
 echo "[ENTRYPOINT] Current user: $(whoami)"
 echo "[ENTRYPOINT] Current directory: $(pwd)"
-echo "[ENTRYPOINT] Directory contents:"
-ls -la
 
 echo "[ENTRYPOINT] 🔧 Configuring environment..."
 

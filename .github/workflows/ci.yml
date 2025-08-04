@@ -121,7 +121,7 @@ jobs:
                 "GITHUB_SHA": "${{ github.sha }}"
               }
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-preview?endpointId=1
+            ${{ secrets.PORTAINER_HOST }}/api/stacks/soccer-preview?endpointId=1
             
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main'
@@ -135,7 +135,7 @@ jobs:
                 "GITHUB_SHA": "${{ github.sha }}"
               }
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-prod?endpointId=1
+            ${{ secrets.PORTAINER_HOST }}/api/stacks/soccer-prod?endpointId=1
 
   e2e-tests:
     needs: deploy

@@ -27,10 +27,11 @@ make push
 ## 4. Add GitHub Secrets
 Go to: Settings → Secrets and variables → Actions
 
-Required secrets (only these 3):
-- [ ] `PORTAINER_API_KEY`
-- [ ] `TS_OAUTH_CLIENT_ID`
-- [ ] `TS_OAUTH_SECRET`
+Required secrets:
+- [ ] `PORTAINER_API_KEY` - Your Portainer API token
+- [ ] `PORTAINER_HOST` - e.g., `https://portainer.homelab.internal:9443`
+- [ ] `TS_OAUTH_CLIENT_ID` - From Tailscale OAuth setup
+- [ ] `TS_OAUTH_SECRET` - From Tailscale OAuth setup
 
 All other secrets (database, API keys, etc.) are managed in Portainer!
 

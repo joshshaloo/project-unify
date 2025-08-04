@@ -104,7 +104,7 @@ jobs:
                 "com.soccer.type": "preview"
               }
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/${STACK_NAME}/git/deploy || \
+            ${{ secrets.PORTAINER_HOST }}/api/stacks/${STACK_NAME}/git/deploy || \
           curl -X POST \
             -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
             -H "Content-Type: application/json" \
@@ -114,7 +114,7 @@ jobs:
               "method": "string",
               "stackFileContent": "version: \"3.9\"\nservices:\n  web:\n    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${IMAGE_TAG}'\n    environment:\n      - NODE_ENV=preview\n      - DATABASE_URL=${{ secrets.DATABASE_URL_PREVIEW }}\n      - NEXT_PUBLIC_APP_URL='${PREVIEW_URL}'\n      - OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}\n      - N8N_WEBHOOK_URL=${{ secrets.N8N_WEBHOOK_URL }}\n      - PORT=3000\n    labels:\n      - traefik.enable=true\n      - traefik.http.routers.pr-'${PR_NUMBER}'.rule=Host(\`pr-'${PR_NUMBER}'.soccer-unify.homelab.internal\`)\n      - traefik.http.routers.pr-'${PR_NUMBER}'.tls=true\n      - traefik.http.services.pr-'${PR_NUMBER}'.loadbalancer.server.port=3000\n      - com.soccer.pr='${PR_NUMBER}'\n      - com.soccer.type=preview\n    networks:\n      - traefik\n    deploy:\n      replicas: 1\n      update_config:\n        parallelism: 1\n        delay: 10s\n      restart_policy:\n        condition: on-failure\n        delay: 5s\n        max_attempts: 3\nnetworks:\n  traefik:\n    external: true"
             }' \
-            https://portainer.homelab.internal:9443/api/stacks?type=2&endpointId=1
+            ${{ secrets.PORTAINER_HOST }}/api/stacks?type=2&endpointId=1
           
           echo "preview-url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
       
@@ -236,7 +236,7 @@ jobs:
           # Delete the stack
           curl -X DELETE \
             -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
-            https://portainer.homelab.internal:9443/api/stacks/${STACK_NAME}
+            ${{ secrets.PORTAINER_HOST }}/api/stacks/${STACK_NAME}
           
           echo "✅ Cleaned up preview deployment for PR #${PR_NUMBER}"
       

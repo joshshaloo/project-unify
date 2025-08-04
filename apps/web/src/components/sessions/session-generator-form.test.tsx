@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderWithProviders, createMockFormData } from '@/test/utils/test-utils'
+import { renderWithProviders } from '@/test/utils/test-utils'
 import { SessionGeneratorForm } from './session-generator-form'
 
 // Mock the tRPC client

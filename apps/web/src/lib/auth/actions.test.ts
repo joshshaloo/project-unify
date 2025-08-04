@@ -63,7 +63,7 @@ vi.mock('next/headers', () => ({
 }))
 
 vi.mock('./magic-link', async () => {
-  const actual = await vi.importActual<typeof import('./magic-link')>('./magic-link')
+  const actual = await vi.importActual('./magic-link')
   return {
     ...actual,
     generateMagicLink: vi.fn().mockResolvedValue('mock-token'),

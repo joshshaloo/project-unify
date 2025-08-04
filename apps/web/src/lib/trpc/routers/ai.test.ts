@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createMockTRPCContext } from '@/test/utils/test-utils'
-import { createTestUser, createTestUserWithClub } from '@/test/factories'
+// import { createTestUser, createTestUserWithClub } from '@/test/factories'
 import { aiRouter } from './ai'
 
 // Mock dependencies
@@ -28,11 +28,19 @@ vi.mock('../../auth/roles', () => ({
 describe('AI Router', () => {
   let ctx: any
   let caller: any
-  const { n8nClient } = require('../../ai/n8n-client')
-  const { generateTrainingSession } = require('../../ai/session-generator')
-  const { hasMinimumRole, getUserRoleInClub } = require('../../auth/roles')
+  let n8nClient: any
+  let generateTrainingSession: any
+  let hasMinimumRole: any
+  let getUserRoleInClub: any
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const n8nClientModule = await import('../../ai/n8n-client')
+    const sessionGeneratorModule = await import('../../ai/session-generator')
+    const authRolesModule = await import('../../auth/roles')
+    n8nClient = (n8nClientModule as any).n8nClient
+    generateTrainingSession = (sessionGeneratorModule as any).generateTrainingSession
+    hasMinimumRole = (authRolesModule as any).hasMinimumRole
+    getUserRoleInClub = (authRolesModule as any).getUserRoleInClub
     vi.clearAllMocks()
     ctx = createMockTRPCContext()
     caller = aiRouter.createCaller(ctx)

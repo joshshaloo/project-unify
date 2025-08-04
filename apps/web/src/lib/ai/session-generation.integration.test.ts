@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createMockTRPCContext } from '@/test/utils/test-utils'
-import { createTestUser, createTestUserWithClub } from '@/test/factories'
+// import { createTestUser, createTestUserWithClub } from '@/test/factories'
 import { aiRouter } from '../trpc/routers/ai'
 import type { CoachWinstonResponse } from './n8n-client'
 
@@ -458,7 +458,7 @@ describe('AI Session Generation Integration Tests', () => {
 
       mockN8nClient.generateSession.mockResolvedValue(incompleteResponse)
 
-      const result = await caller.generateSession(mockSessionInput)
+      await caller.generateSession(mockSessionInput)
 
       const sessionPlan = ctx.prisma.session.create.mock.calls[0][0].data.plan
 
@@ -648,7 +648,8 @@ describe('AI Session Generation Integration Tests', () => {
     })
 
     it('should validate user role before allowing generation', async () => {
-      const { getUserRoleInClub, hasMinimumRole } = require('../auth/roles')
+      const authRoles = await import('../auth/roles')
+      const { getUserRoleInClub, hasMinimumRole } = authRoles
       
       getUserRoleInClub.mockReturnValue('parent')
       hasMinimumRole.mockReturnValue(false)

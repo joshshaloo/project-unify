@@ -3,7 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import type { NextAuthConfig } from "next-auth"
 import Nodemailer from "next-auth/providers/nodemailer"
-import { Adapter } from "next-auth/adapters"
+import type { Adapter } from "next-auth/adapters"
 
 // Debug: Check if prisma client is properly initialized
 console.log("Prisma client models:", Object.keys(prisma))

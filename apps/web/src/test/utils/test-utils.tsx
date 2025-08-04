@@ -97,6 +97,17 @@ export const createMockTRPCContext = (overrides = {}) => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
+    team: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    session: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
   ...overrides,

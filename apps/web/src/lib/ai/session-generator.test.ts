@@ -113,10 +113,17 @@ describe('Session Generator', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     
-    // Get the mocked functions
+    // Set up the mock implementation
+    mockCreate = vi.fn()
     const { getOpenAI } = await import('./openai')
     mockGetOpenAI = getOpenAI as any
-    mockCreate = mockGetOpenAI().chat.completions.create
+    mockGetOpenAI.mockReturnValue({
+      chat: {
+        completions: {
+          create: mockCreate,
+        },
+      },
+    })
   })
 
   afterEach(() => {
@@ -459,7 +466,7 @@ describe('Session Generator', () => {
         expect(activity.coachingPoints.length).toBeGreaterThan(0)
       })
 
-      expect(result.coolDown.instructions).toContain('Light activity to bring heart rate down')
+      expect(result.coolDown.instructions).toContain('Start with low-intensity possession game')
       expect(result.notes).toContain('Adapt activities based on player engagement')
     })
 

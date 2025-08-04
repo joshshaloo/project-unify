@@ -68,6 +68,8 @@ COPY --from=builder /app/apps/web/scripts/docker-entrypoint.sh ./
 COPY --from=builder /app/apps/web/prisma ./prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/node_modules/.pnpm/prisma@*/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.pnpm/@prisma+engines@*/node_modules/@prisma/engines ./node_modules/@prisma/engines
+COPY --from=builder /app/node_modules/.pnpm/@prisma+engines-version@*/node_modules/@prisma/engines-version ./node_modules/@prisma/engines-version
 
 # Ensure script is executable
 RUN chmod +x start-prod.sh docker-entrypoint.sh

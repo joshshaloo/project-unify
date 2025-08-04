@@ -1,130 +1,106 @@
 # Bootstrap Checklist
 
-## Prerequisites
+## Completed ✅
 
-- [ ] Access to Portainer instance
-- [ ] Portainer API token created
-- [ ] Tailscale VPN connected (if accessing remotely)
-- [ ] Docker images built and available in GitHub Container Registry
+### 1. Docker Multi-stage Build
+- Implemented validation stages in Dockerfile
+- All CI/CD checks run inside Docker
+- Fixed Prisma/OpenSSL compatibility issues
+- Added proper Prisma migration support
 
-## Step 1: Configure Environment
+### 2. Makefile Simplification
+- Reduced from 50+ commands to essentials
+- Made Makefile the single UI for developers
+- Added bootstrap commands for initial deployment
+- All GitHub workflows use make commands
 
+### 3. Infrastructure Updates
+- Updated all references from Traefik to Cloudflare Tunnel
+- Changed domain from soccer-unify.com to clubomatic.ai
+- Exposed PostgreSQL ports for Tailnet access
+- Added n8n integration support
+
+### 4. Docker Secrets Implementation
+- Replaced environment variables with Docker secrets
+- Created bootstrap script to generate secrets
+- Updated stack files to use external secrets
+- Added docker-entrypoint.sh for secret loading
+
+### 5. Deployment Automation
+- Created Python script for Portainer API integration
+- Implemented bootstrap vs deploy pattern
+- Added automatic image building/pushing
+- Fixed stack update API calls
+
+### 6. Documentation
+- Updated CLAUDE.md with make workflow
+- Removed all direct pnpm references
+- Added bootstrap instructions
+- Documented all URLs and ports
+
+## Testing Status ⚠️
+
+- Unit tests: 18 failing (pre-existing, out of scope)
+- Docker build: ✅ Working
+- Bootstrap command: ✅ Working
+- Deploy command: ✅ Working
+- Service startup: ✅ Fixed Prisma issues
+
+## Remaining Tasks 📋
+
+### 1. GitHub Configuration
+- [ ] Set up GitHub Container Registry permissions
+- [ ] Configure repository secrets:
+  - DOCKER_USERNAME
+  - DOCKER_PASSWORD
+  - PORTAINER_API_KEY
+  - PORTAINER_HOST
+- [ ] Set up branch protection rules
+
+### 2. Portainer Configuration
+- [ ] Update environment variables in Portainer UI
+- [ ] Replace CHANGE-ME placeholders with real values
+- [ ] Configure SMTP settings for production
+- [ ] Set up monitoring/alerts
+
+### 3. CI/CD Pipeline Testing
+- [ ] Create a PR to test the full workflow
+- [ ] Verify preview deployment works
+- [ ] Test production deployment (with caution)
+- [ ] Validate rollback procedures
+
+### 4. Documentation
+- [ ] Create runbook for common operations
+- [ ] Document secret rotation process
+- [ ] Add troubleshooting guide
+- [ ] Update team onboarding docs
+
+## Quick Reference
+
+### Bootstrap New Environment
 ```bash
-# Edit .env file and add your Portainer credentials
-# Look for the Portainer API Configuration section
-vi .env
-
-# Then source the environment variables
-source .env
+make bootstrap-preview  # Create preview stack
+make bootstrap-prod     # Create production stack
 ```
 
-## Step 2: Run Bootstrap
-
+### Deploy Updates
 ```bash
-# Use the interactive script
-./scripts/bootstrap.sh
-
-# Or run directly:
-make bootstrap-preview   # For preview environment
-make bootstrap-prod     # For production (requires confirmation)
+make build             # Build Docker image
+make push              # Push to registry
+make deploy-preview TAG=abc123  # Deploy to preview
+make deploy-prod TAG=v1.2.3     # Deploy to production
 ```
 
-## Step 3: Configure Secrets in Portainer
-
-### Preview Environment Variables
-
-1. Log into Portainer
-2. Navigate to Stacks → soccer-preview
-3. Update these variables:
-
-- [ ] `POSTGRES_PASSWORD` - Change from default
-- [ ] `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
-- [ ] `OPENAI_API_KEY` - Your OpenAI API key
-- [ ] `N8N_PASSWORD` - Secure password for n8n admin
-- [ ] `SUPABASE_URL` - Your Supabase project URL
-- [ ] `SUPABASE_ANON_KEY` - Your Supabase anon key
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
-
-### Production Environment Variables
-
-Same as preview, plus:
-
-- [ ] `SMTP_HOST` - Your SMTP server
-- [ ] `SMTP_PORT` - Usually 587
-- [ ] `SMTP_USER` - SMTP username
-- [ ] `SMTP_PASSWORD` - SMTP password
-- [ ] `EMAIL_FROM` - From email address
-
-## Step 4: Verify Deployment
-
-### Check Services
-
+### Local Development
 ```bash
-# Check if stacks are running
-curl -H "X-API-Key: $PORTAINER_API_KEY" \
-  $PORTAINER_HOST/api/stacks | jq '.[].Name'
-
-# Should see:
-# "soccer-preview"
-# "soccer-prod" (if bootstrapped)
+make dev               # Start local environment
+make validate          # Run all CI checks
+make test-local        # Run tests locally
 ```
 
-### Test Access
-
-Preview:
-- [ ] App: https://preview.clubomatic.ai
-- [ ] n8n: https://preview-n8n.clubomatic.ai
-- [ ] MailHog: http://172.20.0.22:8125 (Tailnet only)
-- [ ] PostgreSQL: `psql -h 172.20.0.22 -p 5435 -U postgres soccer`
-
-Production:
-- [ ] App: https://app.clubomatic.ai
-- [ ] n8n: https://n8n.clubomatic.ai
-- [ ] PostgreSQL: `psql -h 172.20.0.22 -p 5434 -U postgres soccer`
-
-## Step 5: Initial Database Setup
-
+### Debugging
 ```bash
-# Connect to preview database
-psql -h 172.20.0.22 -p 5435 -U postgres soccer
-
-# Run migrations (from local machine)
-DATABASE_URL="postgresql://postgres:your-password@172.20.0.22:5435/soccer" \
-  pnpm --filter @soccer/web db:push
-
-# Seed with test data (optional)
-DATABASE_URL="postgresql://postgres:your-password@172.20.0.22:5435/soccer" \
-  pnpm --filter @soccer/web db:seed
+make logs s=app        # View service logs
+make shell s=app       # Enter container
+make status            # Check service status
 ```
-
-## Troubleshooting
-
-### Bootstrap Fails
-
-1. Check Portainer is accessible:
-   ```bash
-   curl -H "X-API-Key: $PORTAINER_API_KEY" $PORTAINER_HOST/api/status
-   ```
-
-2. Verify API key is valid
-3. Check if stack name already exists
-
-### Services Not Starting
-
-1. Check logs in Portainer UI
-2. Verify all required environment variables are set
-3. Check volume mount paths exist on host
-
-### Cannot Access Services
-
-1. Verify Cloudflare Tunnel is active
-2. Check Docker services are running
-3. Review firewall rules
-
-## Next Steps
-
-After successful bootstrap:
-
-1. Set up GitHub secrets for CI/CD
-2. Configure branch protection rules
-3. Test deployment pipeline with a PR

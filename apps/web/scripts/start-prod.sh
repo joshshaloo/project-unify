@@ -3,9 +3,8 @@ set -e
 
 echo "🚀 Starting production server..."
 
-# Run database migrations
-echo "📦 Running database migrations..."
-node ./node_modules/prisma/build/index.js migrate deploy
+# Skip migrations in production - they should be run as a separate deployment step
+echo "📦 Skipping database migrations (run separately if needed)"
 
 # Start the Next.js server
 echo "✅ Starting Next.js..."

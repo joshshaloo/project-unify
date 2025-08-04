@@ -118,7 +118,8 @@
       "Bash(python3:*)",
       "Bash(DEBUG=1 python3 scripts/portainer_deploy.py bootstrap preview 55c39cc)",
       "WebFetch(domain:gist.github.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(docker run:*)"
     ],
     "deny": []
   },

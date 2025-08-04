@@ -51,6 +51,9 @@ yarn-error.log*
 !.vscode/settings.json
 .idea
 
+# Claude settings
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db

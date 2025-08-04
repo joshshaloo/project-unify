@@ -50,9 +50,9 @@ The project uses GitHub Actions for CI/CD with two main workflows:
    - Tags: `pr-NUMBER`, `pr-NUMBER-SHA`
    - Includes PR-specific build args
 
-4. **deploy-pr-preview** - Creates isolated preview environment
-   - URL: `https://pr-NUMBER.preview.soccer-unify.com`
-   - Creates Docker stack via Portainer
+4. **deploy-pr-preview** - Updates shared preview environment
+   - URL: `https://preview.soccer-unify.com`
+   - Updates preview stack with PR image
    - Posts preview URL as PR comment
 
 5. **test-pr-preview** - Runs E2E tests against preview
@@ -63,9 +63,9 @@ The project uses GitHub Actions for CI/CD with two main workflows:
    - Posts summary comment on PR
    - Shows pass/fail status for each check
 
-7. **cleanup-pr-preview** - Removes preview when PR closes
-   - Deletes Docker stack
-   - Posts cleanup confirmation
+7. **cleanup-pr-preview** - Notes PR closure
+   - Preview environment remains available
+   - Posts closure notification
 
 ## Required Secrets
 

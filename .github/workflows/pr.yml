@@ -158,85 +158,27 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
       
-      - name: Deploy PR to Homelab
+      - name: Deploy PR to Preview Environment
         id: deploy
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           IMAGE_TAG: pr-${{ github.event.pull_request.number }}
         run: |
-          # Create stack name for PR
-          STACK_NAME="soccer-pr-${PR_NUMBER}"
-          PREVIEW_URL="https://pr-${PR_NUMBER}.preview.soccer-unify.com"
+          # Deploy to shared preview environment
+          STACK_NAME="soccer-preview"
+          PREVIEW_URL="https://preview.soccer-unify.com"
           
-          # Create or update stack via Portainer API
-          STACK_FILE_CONTENT=$(cat <<EOF
-          version: "3.9"
-          services:
-            web:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
-              environment:
-                - NODE_ENV=preview
-                - DATABASE_URL=${{ secrets.DATABASE_URL_PREVIEW }}
-                - NEXT_PUBLIC_APP_URL=${PREVIEW_URL}
-                - NEXTAUTH_URL=${PREVIEW_URL}
-                - NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
-                - OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-                - N8N_WEBHOOK_URL=${{ secrets.N8N_WEBHOOK_URL }}
-                - EMAIL_SERVER_HOST=${{ secrets.EMAIL_SERVER_HOST }}
-                - EMAIL_SERVER_PORT=${{ secrets.EMAIL_SERVER_PORT }}
-                - EMAIL_FROM=${{ secrets.EMAIL_FROM }}
-                - PORT=3000
-              labels:
-                - traefik.enable=true
-                - traefik.http.routers.pr-${PR_NUMBER}.rule=Host(\`pr-${PR_NUMBER}.preview.soccer-unify.com\`)
-                - traefik.http.routers.pr-${PR_NUMBER}.tls=true
-                - traefik.http.services.pr-${PR_NUMBER}.loadbalancer.server.port=3000
-                - com.soccer.pr=${PR_NUMBER}
-                - com.soccer.type=preview
-              networks:
-                - traefik
-                - internal
-              deploy:
-                replicas: 1
-                update_config:
-                  parallelism: 1
-                  delay: 10s
-                restart_policy:
-                  condition: on-failure
-                  delay: 5s
-                  max_attempts: 3
-              healthcheck:
-                test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-                interval: 30s
-                timeout: 3s
-                retries: 3
-          
-          networks:
-            traefik:
-              external: true
-            internal:
-              driver: overlay
-          EOF
-          )
-          
-          # Try to update existing stack first, then create if it doesn't exist
+          # Update preview stack with PR image
           curl -X PUT \
             -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"stackFileContent\": \"${STACK_FILE_CONTENT//\"/\\\"}\"
-            }" \
-            ${{ secrets.PORTAINER_HOST }}/api/stacks/${STACK_NAME}?endpointId=1 || \
-          curl -X POST \
-            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"name\": \"${STACK_NAME}\",
-              \"type\": 2,
-              \"endpointId\": 1,
-              \"stackFileContent\": \"${STACK_FILE_CONTENT//\"/\\\"}\"
-            }" \
-            ${{ secrets.PORTAINER_HOST }}/api/stacks?type=2&method=string&endpointId=1
+            -d '{
+              "env": {
+                "GITHUB_SHA": "'${IMAGE_TAG}'",
+                "GITHUB_REPOSITORY": "${{ github.repository }}"
+              }
+            }' \
+            ${{ secrets.PORTAINER_HOST }}/api/stacks/${STACK_NAME}?endpointId=1
           
           echo "preview-url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
       
@@ -274,9 +216,9 @@ jobs:
             const body = `## 🚀 Preview Deployment Ready!
             
             **Preview URL:** ${previewUrl}
-            **Stack:** soccer-pr-${prNumber}
+            **Image Tag:** pr-${prNumber}
             
-            The deployment will be automatically cleaned up when this PR is closed.`;
+            This PR has been deployed to the shared preview environment.`;
             
             if (botComment) {
               await github.rest.issues.updateComment({
@@ -406,18 +348,11 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
       
-      - name: Remove PR Stack
+      - name: Note PR Closure
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          STACK_NAME="soccer-pr-${PR_NUMBER}"
-          
-          # Delete the stack
-          curl -X DELETE \
-            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
-            ${{ secrets.PORTAINER_HOST }}/api/stacks/${STACK_NAME}?endpointId=1
-          
-          echo "✅ Cleaned up preview deployment for PR #${PR_NUMBER}"
+          echo "✅ PR #${PR_NUMBER} has been closed. Preview environment remains available for other PRs."
       
       - name: Comment PR
         uses: actions/github-script@v7
@@ -427,5 +362,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: '🧹 Preview deployment has been cleaned up.'
+              body: '✅ PR closed. The preview environment remains available for other PRs.'
             });

@@ -105,7 +105,8 @@
       "Bash(sed:*)",
       "Bash(pntml playwright test:*)",
       "Bash(md-tree:*)",
-      "Bash(CI=true pnpm test)"
+      "Bash(CI=true pnpm test)",
+      "Bash(gh run list:*)"
     ],
     "deny": []
   },

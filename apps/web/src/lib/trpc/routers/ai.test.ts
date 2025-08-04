@@ -139,7 +139,16 @@ describe('AI Router', () => {
       ctx.prisma.session.findMany.mockResolvedValue([])
       ctx.prisma.session.create.mockImplementation(({ data }: any) => 
         Promise.resolve({
-          ...mockCreatedSession,
+          id: 'session-123',
+          clubId: data.clubId,
+          teamId: data.teamId,
+          createdByUserId: data.createdByUserId,
+          title: data.title,
+          date: data.date,
+          duration: data.duration,
+          type: data.type,
+          status: data.status,
+          aiGenerated: data.aiGenerated,
           plan: data.plan,
         })
       )
@@ -167,7 +176,18 @@ describe('AI Router', () => {
         weatherConditions: 'good',
       })
       expect(ctx.prisma.session.create).toHaveBeenCalled()
-      expect(result.session).toEqual(mockCreatedSession)
+      expect(result.session).toMatchObject({
+        id: 'session-123',
+        clubId: 'club-123',
+        teamId: 'team-123',
+        createdByUserId: 'test-user-id',
+        title: 'Passing and Shooting Training',
+        date: mockSessionInput.date,
+        duration: 90,
+        type: 'training',
+        status: 'draft',
+        aiGenerated: true,
+      })
       expect(result.n8nMetadata).toEqual({
         generatedAt: '2024-01-01T12:00:00Z',
         teamId: 'team-123',
@@ -409,7 +429,7 @@ describe('AI Router', () => {
         description: 'Prepare for training',
         objectives: ['Maintain good posture', 'Gradual intensity'],
         setup: {
-          space: '30x20 yard',
+          space: '30x20 yards',
           equipment: ['cones', 'balls'],
           organization: 'Use 30x20 yard area with cones in corners',
         },
@@ -624,15 +644,14 @@ describe('AI Router', () => {
         section: 'warmUp',
       })).rejects.toThrow('You must be logged in to access this resource')
 
-      // suggestDrills doesn't require auth currently, but let's test anyway
-      const result = await caller.suggestDrills({
+      // suggestDrills should also require auth
+      await expect(caller.suggestDrills({
         ageGroup: 'U12',
         category: 'technical',
         focus: 'passing',
         playerCount: 15,
         duration: 20,
-      })
-      expect(result).toBeDefined()
+      })).rejects.toThrow('You must be logged in to access this resource')
     })
   })
 })

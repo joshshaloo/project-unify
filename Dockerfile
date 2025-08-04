@@ -70,6 +70,9 @@ COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prism
 COPY --from=builder /app/node_modules/.pnpm/prisma@*/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+engines@*/node_modules/@prisma/engines ./node_modules/@prisma/engines
 COPY --from=builder /app/node_modules/.pnpm/@prisma+engines-version@*/node_modules/@prisma/engines-version ./node_modules/@prisma/engines-version
+COPY --from=builder /app/node_modules/.pnpm/@prisma+debug@*/node_modules/@prisma/debug ./node_modules/@prisma/debug
+COPY --from=builder /app/node_modules/.pnpm/@prisma+get-platform@*/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
+COPY --from=builder /app/node_modules/.pnpm/@prisma+fetch-engine@*/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
 
 # Ensure script is executable
 RUN chmod +x start-prod.sh docker-entrypoint.sh

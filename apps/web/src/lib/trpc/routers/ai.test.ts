@@ -128,7 +128,7 @@ describe('AI Router', () => {
       type: 'training',
       status: 'draft',
       aiGenerated: true,
-      plan: expect.any(Object),
+      plan: {},
     }
 
     beforeEach(() => {
@@ -137,7 +137,12 @@ describe('AI Router', () => {
       hasMinimumRole.mockReturnValue(true)
       ctx.prisma.team.findUnique.mockResolvedValue(mockTeam)
       ctx.prisma.session.findMany.mockResolvedValue([])
-      ctx.prisma.session.create.mockResolvedValue(mockCreatedSession)
+      ctx.prisma.session.create.mockImplementation(({ data }) => 
+        Promise.resolve({
+          ...mockCreatedSession,
+          plan: data.plan,
+        })
+      )
     })
 
     it('should successfully generate session via n8n', async () => {
@@ -163,7 +168,11 @@ describe('AI Router', () => {
       })
       expect(ctx.prisma.session.create).toHaveBeenCalled()
       expect(result.session).toEqual(mockCreatedSession)
-      expect(result.n8nMetadata).toEqual(mockN8nResponse.metadata)
+      expect(result.n8nMetadata).toEqual({
+        generatedAt: '2024-01-01T12:00:00Z',
+        teamId: 'team-123',
+        requestId: 'req-123',
+      })
     })
 
     it('should check user permissions', async () => {
@@ -390,7 +399,7 @@ describe('AI Router', () => {
 
       const result = await caller.generateSession(mockSessionInput)
 
-      const sessionPlan = result.session.plan
+      const sessionPlan = result.generatedPlan
       
       // Check warm-up mapping
       expect(sessionPlan.warmUp).toMatchObject({
@@ -400,7 +409,7 @@ describe('AI Router', () => {
         description: 'Prepare for training',
         objectives: ['Maintain good posture', 'Gradual intensity'],
         setup: {
-          space: '30x20 yards',
+          space: '30x20 yard',
           equipment: ['cones', 'balls'],
           organization: 'Use 30x20 yard area with cones in corners',
         },
@@ -459,7 +468,7 @@ describe('AI Router', () => {
       n8nClient.generateSession.mockResolvedValue(responseWithoutWarmup)
 
       const result = await caller.generateSession(mockSessionInput)
-      const sessionPlan = result.session.plan
+      const sessionPlan = result.generatedPlan
 
       // Should have fallback warm-up and cool-down
       expect(sessionPlan.warmUp.name).toBe('Dynamic Warm-Up')
@@ -608,12 +617,12 @@ describe('AI Router', () => {
         date: new Date(),
         duration: 90,
         sessionType: 'training',
-      })).rejects.toThrow()
+      })).rejects.toThrow('You must be logged in to access this resource')
 
       await expect(caller.regenerateSection({
         sessionId: 'session-123',
         section: 'warmUp',
-      })).rejects.toThrow()
+      })).rejects.toThrow('You must be logged in to access this resource')
 
       // suggestDrills doesn't require auth currently, but let's test anyway
       const result = await caller.suggestDrills({

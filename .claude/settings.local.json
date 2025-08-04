@@ -104,7 +104,8 @@
       "Bash(timeout 60 pnpm test:e2e --grep \"should maintain session across browser refresh\" --reporter=list --project=chromium)",
       "Bash(sed:*)",
       "Bash(pntml playwright test:*)",
-      "Bash(md-tree:*)"
+      "Bash(md-tree:*)",
+      "Bash(CI=true pnpm test)"
     ],
     "deny": []
   },

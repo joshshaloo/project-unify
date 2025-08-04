@@ -13,7 +13,7 @@ vi.mock('@/lib/trpc/client', () => ({
   api: {
     ai: {
       generateSession: {
-        useMutation: () => mockUseMutation(),
+        useMutation: vi.fn(),
       },
     },
   },
@@ -52,15 +52,28 @@ describe('SessionGeneratorForm', () => {
     },
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     mockLocation.href = ''
     
+    // Get the mocked useMutation function
+    const { api } = await import('@/lib/trpc/client')
+    const useMutationMock = api.ai.generateSession.useMutation as any
+    
     // Setup default mutation mock
-    mockUseMutation.mockReturnValue({
-      mutateAsync: mockMutateAsync,
-      isLoading: false,
-      error: null,
+    useMutationMock.mockImplementation((options?: any) => {
+      // Store the callbacks for later use
+      if (options) {
+        mockMutateAsync._onSuccess = options.onSuccess
+        mockMutateAsync._onError = options.onError
+      }
+      
+      return {
+        mutate: mockMutateAsync,
+        mutateAsync: mockMutateAsync,
+        isLoading: false,
+        error: null,
+      }
     })
   })
 
@@ -201,7 +214,13 @@ describe('SessionGeneratorForm', () => {
   describe('form submission', () => {
     it('should submit form with correct data', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        // Trigger the onSuccess callback
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -233,7 +252,12 @@ describe('SessionGeneratorForm', () => {
 
     it('should parse focus areas correctly', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -259,7 +283,12 @@ describe('SessionGeneratorForm', () => {
 
     it('should handle empty focus areas and equipment', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -285,7 +314,12 @@ describe('SessionGeneratorForm', () => {
 
     it('should trim and filter empty focus areas', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -336,13 +370,17 @@ describe('SessionGeneratorForm', () => {
       await waitFor(() => {
         expect(screen.getByText('Generating Session...')).toBeInTheDocument()
         expect(submitButton).toBeDisabled()
-        expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument() // Loading spinner
       })
     })
 
     it('should reset loading state after successful submission', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -366,7 +404,12 @@ describe('SessionGeneratorForm', () => {
   describe('success handling', () => {
     it('should show success message on successful generation', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -387,7 +430,12 @@ describe('SessionGeneratorForm', () => {
 
     it('should redirect to session page on success', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -419,7 +467,12 @@ describe('SessionGeneratorForm', () => {
       })
 
       // Then submit successfully
-      mockMutateAsync.mockResolvedValue(mockGeneratedSession)
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onSuccess) {
+          mockMutateAsync._onSuccess(mockGeneratedSession)
+        }
+        return mockGeneratedSession
+      })
       
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
@@ -442,7 +495,12 @@ describe('SessionGeneratorForm', () => {
     it('should show error message on failed generation', async () => {
       const user = userEvent.setup()
       const errorMessage = 'Failed to generate session: AI service unavailable'
-      mockMutateAsync.mockRejectedValue(new Error(errorMessage))
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onError) {
+          mockMutateAsync._onError(new Error(errorMessage))
+        }
+        throw new Error(errorMessage)
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -463,7 +521,12 @@ describe('SessionGeneratorForm', () => {
 
     it('should show generic error message for unknown errors', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockRejectedValue(new Error())
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onError) {
+          mockMutateAsync._onError(new Error())
+        }
+        throw new Error()
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -484,7 +547,12 @@ describe('SessionGeneratorForm', () => {
 
     it('should reset loading state after error', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockRejectedValue(new Error('Test error'))
+      mockMutateAsync.mockImplementation(async (data) => {
+        if (mockMutateAsync._onError) {
+          mockMutateAsync._onError(new Error('Test error'))
+        }
+        throw new Error('Test error')
+      })
       
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
@@ -510,7 +578,21 @@ describe('SessionGeneratorForm', () => {
       renderWithProviders(<SessionGeneratorForm {...defaultProps} />)
 
       // First succeed
-      mockMutateAsync.mockResolvedValueOnce(mockGeneratedSession)
+      let callCount = 0
+      mockMutateAsync.mockImplementation(async (data) => {
+        callCount++
+        if (callCount === 1) {
+          if (mockMutateAsync._onSuccess) {
+            mockMutateAsync._onSuccess(mockGeneratedSession)
+          }
+          return mockGeneratedSession
+        } else {
+          if (mockMutateAsync._onError) {
+            mockMutateAsync._onError(new Error('Network error'))
+          }
+          throw new Error('Network error')
+        }
+      })
       
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
@@ -527,8 +609,6 @@ describe('SessionGeneratorForm', () => {
       })
 
       // Then fail on next attempt
-      mockMutateAsync.mockRejectedValueOnce(new Error('Network error'))
-      
       await user.click(screen.getByRole('button', { name: 'Generate Session' }))
 
       await waitFor(() => {

@@ -82,6 +82,13 @@ export const createMockTRPCContext = (overrides = {}) => ({
     name: 'Test User',
     supabaseId: 'test-supabase-id',
     onboardingCompleted: true,
+    clubs: [
+      {
+        clubId: 'club-123',
+        role: 'head_coach',
+        status: 'active',
+      },
+    ],
   },
   prisma: {
     user: {
@@ -105,6 +112,7 @@ export const createMockTRPCContext = (overrides = {}) => ({
     },
     session: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },

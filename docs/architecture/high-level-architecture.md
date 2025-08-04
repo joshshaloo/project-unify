@@ -124,7 +124,7 @@ graph TB
 - **Self-Hosted MVP:** Complete control over infrastructure during validation phase - _Rationale:_ Zero cloud costs until product-market fit is proven
 - **Docker Swarm Orchestration:** Simple container orchestration - _Rationale:_ Easier than Kubernetes for small deployments, built into Docker
 - **Multi-Stage Docker Builds:** Testing integrated into build process - _Rationale:_ Catch issues before deployment, ensures quality
-- **Magic Link Authentication:** Email-based passwordless auth - _Rationale:_ Simpler than OAuth for MVP, no external auth dependencies
+- **NextAuth Email Authentication:** Email-based passwordless auth via NextAuth - _Rationale:_ Industry-standard authentication with email provider, automatic session management
 - **PostgreSQL for All Environments:** Consistent database across dev/preview/prod - _Rationale:_ Eliminates environment-specific bugs, simple backup strategy
 - **Cloudflare Zero Trust:** Secure public access to home lab - _Rationale:_ Enterprise-grade security without complexity
 - **GitOps Deployment:** GitHub Actions drives all deployments - _Rationale:_ Version-controlled, auditable, automated deployments

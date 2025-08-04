@@ -1,4 +1,4 @@
-# AUTH-002: Multi-role support
+# AUTH-002: Role-based access control
 
 **Type:** Authentication  
 **Points:** 3  
@@ -6,90 +6,132 @@
 **Dependencies:** AUTH-001  
 
 ## Description
-Implement the multi-role system allowing users to have different roles across clubs and teams, with seamless context switching based on current activity.
+Implement role-based access control using the current UserClub model. Support admin, head_coach, assistant_coach, and parent roles with appropriate permissions for each club context.
 
 ## Acceptance Criteria
-- [ ] Role-based permissions system implemented
-- [ ] Users can have multiple roles per club
-- [ ] Context detection for current role
-- [ ] Permission checks in API middleware
-- [ ] Role indicators in UI
-- [ ] Admin can assign/revoke roles
-- [ ] Role expiration support
+- [ ] Role-based middleware for tRPC procedures
+- [ ] Users can have different roles per club (via UserClub table)
+- [ ] Permission checks based on current club context
+- [ ] Role indicators in UI components
+- [ ] Admin can invite users with specific roles
+- [ ] Role status management (active, inactive, invited)
+- [ ] Club-scoped authorization checks
 - [ ] Audit trail for role changes
 
 ## Technical Details
 
-### Permission System
+### Current Database Schema (UserClub Model)
 ```typescript
-// packages/shared/types/permissions.ts
-export const permissions = {
-  doc: {
-    analytics: ['view', 'export'],
-    curriculum: ['view', 'edit', 'approve'],
-    coaches: ['view', 'manage', 'evaluate'],
-    settings: ['view', 'edit'],
-  },
-  head_coach: {
-    sessions: ['view', 'create', 'edit', 'delete'],
-    team: ['view', 'manage'],
-    players: ['view', 'evaluate'],
-    approvals: ['submit', 'delegate'],
-  },
-  assistant_coach: {
-    sessions: ['view', 'create', 'edit'],
-    team: ['view'],
-    players: ['view', 'evaluate'],
-  },
-  parent: {
-    players: ['view:own'],
-    sessions: ['view:shared'],
-    homework: ['view:own'],
-  },
-  player: {
-    sessions: ['view:assigned'],
-    homework: ['view:own', 'submit'],
-    progress: ['view:own'],
-  }
-} as const;
+// From apps/web/prisma/schema.prisma (already implemented)
+model UserClub {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  role      String   // admin, head_coach, assistant_coach, parent
+  status    String   @default("active") // active, inactive, invited
+  joinedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@unique([userId, clubId])
+  @@map("user_clubs")
+}
 ```
 
-### Context Detection
+### Permission System (Simplified for MVP)
 ```typescript
-// apps/api/src/middleware/auth.ts
-export async function getRoleContext(
-  userId: string, 
-  resource: { type: string; id: string }
-): Promise<UserRole> {
-  // Determine role based on resource being accessed
-  if (resource.type === 'team') {
-    const teamRole = await db.teamMember.findFirst({
-      where: { 
-        userId, 
-        teamId: resource.id 
-      },
-      include: { 
-        team: { 
-          include: { club: true } 
-        } 
-      }
-    });
-    
-    return teamRole?.role || 'viewer';
+// apps/web/src/lib/auth/roles.ts (to be implemented)
+export const ROLES = {
+  admin: {
+    sessions: ['create', 'read', 'update', 'delete'],
+    teams: ['create', 'read', 'update', 'delete'],
+    players: ['create', 'read', 'update', 'delete'],
+    users: ['invite', 'manage'],
+    club: ['settings', 'billing'],
+  },
+  head_coach: {
+    sessions: ['create', 'read', 'update', 'delete'],
+    teams: ['read', 'update'],
+    players: ['create', 'read', 'update'],
+    users: ['view'],
+  },
+  assistant_coach: {
+    sessions: ['create', 'read', 'update'],
+    teams: ['read'],
+    players: ['read', 'update'],
+  },
+  parent: {
+    sessions: ['read:own_player'],
+    players: ['read:own'],
+  },
+} as const;
+
+export type Role = keyof typeof ROLES;
+export type Permission = string;
+```
+
+### tRPC Middleware for Role Checking
+```typescript
+// apps/web/src/lib/trpc/procedures.ts (to be implemented)
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { TRPCError } from '@trpc/server'
+
+export const requireAuth = middleware(async ({ next, ctx }) => {
+  const session = await auth()
+  
+  if (!session?.user?.id) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' })
   }
   
-  if (resource.type === 'club') {
-    const clubRole = await db.userClubRole.findFirst({
-      where: { 
-        userId, 
-        clubId: resource.id,
-        isPrimary: true 
-      }
-    });
-    
-    return clubRole?.role || 'viewer';
+  return next({
+    ctx: {
+      ...ctx,
+      session,
+      userId: session.user.id,
+    },
+  })
+})
+
+export const requireClubAccess = (clubId: string) => middleware(async ({ next, ctx }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' })
   }
-}
+  
+  const userClub = await prisma.userClub.findUnique({
+    where: {
+      userId_clubId: {
+        userId: ctx.userId,
+        clubId,
+      },
+      status: 'active',
+    },
+  })
+  
+  if (!userClub) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'No access to this club' })
+  }
+  
+  return next({
+    ctx: {
+      ...ctx,
+      userClub,
+      role: userClub.role,
+    },
+  })
+})
+
+export const requireRole = (allowedRoles: string[]) => middleware(async ({ next, ctx }) => {
+  if (!ctx.role || !allowedRoles.includes(ctx.role)) {
+    throw new TRPCError({ 
+      code: 'FORBIDDEN', 
+      message: `Requires one of: ${allowedRoles.join(', ')}` 
+    })
+  }
+  
+  return next({ ctx })
+})
 ```
 
 ### UI Role Indicators

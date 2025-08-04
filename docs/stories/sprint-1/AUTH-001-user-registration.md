@@ -1,4 +1,4 @@
-# AUTH-001: User registration with Supabase
+# AUTH-001: User registration with NextAuth Magic Links
 
 **Type:** Authentication  
 **Points:** 4  
@@ -6,233 +6,224 @@
 **Dependencies:** TECH-002, TECH-004  
 
 ## Description
-Implement basic user registration flow using Supabase Auth with email verification. Create a simple self-registration process for MVP, deferring invitation system to Sprint 2.
+Implement passwordless user registration using NextAuth 5.0 with magic link authentication. Users register with email and receive a magic link to complete registration and create their club profile.
 
 ## Acceptance Criteria
-- [ ] Registration page with form
-- [ ] Email/password registration working
-- [ ] Email verification flow complete
-- [ ] User profile created on registration
-- [ ] Basic club creation for first user
-- [ ] Error handling for common cases
-- [ ] Registration UI components
-- [ ] Success/error messaging
-- [ ] Redirect to dashboard after verification
+- [ ] Registration page with form (email, name, club name)
+- [ ] Magic link authentication working via NextAuth
+- [ ] Email verification flow through magic links
+- [ ] User profile creation on first login
+- [ ] Club creation and admin role assignment
+- [ ] Error handling and rate limiting
+- [ ] Registration intent system for club creation
+- [ ] Success messaging and email sent confirmation
+- [ ] Redirect to dashboard after magic link verification
 
 ## Technical Details
 
-### Registration Flow (Simplified for MVP)
-1. User navigates to /register
-2. Enters email, password, name, club name
-3. Supabase creates auth user
-4. Database trigger creates user profile
-5. Creates new club and UserClubRole entry
-6. Email verification sent via Supabase
-7. User redirected to verify page
-8. After verification, redirect to dashboard
+### Current Architecture Context
+- **Authentication:** NextAuth 5.0 with Nodemailer provider
+- **Database:** Self-hosted PostgreSQL with NextAuth adapter
+- **Email:** MailHog (dev) / SMTP (production)
+- **Session:** Database-based sessions (required for email provider)
 
-### Server Action Implementation (Simplified)
+### Registration Flow (Magic Link Based)
+1. User navigates to `/auth/signup`
+2. Enters email, name, club name in form
+3. Server action stores registration intent temporarily
+4. Magic link generated and emailed via NextAuth
+5. User clicks magic link in email
+6. NextAuth verifies and creates/finds user account
+7. Registration intent retrieved and club created
+8. User redirected to `/dashboard`
+
+### Server Action Implementation (Current)
 ```typescript
-// apps/web/src/lib/auth/actions.ts
+// apps/web/src/lib/auth/actions.ts (already implemented)
 'use server'
 
-export async function registerUser(formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  const name = formData.get('name') as string;
-  const clubName = formData.get('clubName') as string;
-  
-  // Create Supabase user
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
-    }
+export async function registerUser(prevState: any, formData: FormData) {
+  const validatedData = registerSchema.parse({
+    email: formData.get('email'),
+    name: formData.get('name') || undefined,
+    clubName: formData.get('clubName') || undefined,
   });
   
-  if (authError) {
-    return { error: authError.message };
+  // Rate limiting by email
+  if (!checkRateLimit(`register:${validatedData.email}`, 3)) {
+    return { error: 'Too many registration attempts. Please try again later.' };
   }
-  
-  // Create club and association (via database function)
-  const { error: dbError } = await supabase.rpc('create_club_with_owner', {
-    user_id: authData.user!.id,
-    club_name: clubName,
-    user_role: 'admin'
-  });
-  
-  if (dbError) {
-    return { error: 'Failed to create club' };
+
+  // Store registration intent for club creation
+  if (validatedData.clubName) {
+    await storeRegistrationIntent(validatedData.email, {
+      name: validatedData.name,
+      clubName: validatedData.clubName,
+    });
   }
+
+  // Send magic link via NextAuth
+  await generateMagicLink(validatedData.email);
   
-  return { success: true };
+  return { success: true, message: 'Check your email to complete registration!' };
 }
 ```
 
-### Frontend Components
+### Frontend Components (Match Current Implementation)
 ```typescript
-// apps/web/src/app/(auth)/register/page.tsx
-export default function RegisterPage() {
+// apps/web/src/app/auth/signup/page.tsx (current file location)
+import { SignupForm } from '@/components/auth/signup-form'
+
+export default function SignupPage() {
   return (
-    <AuthLayout>
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>
-            Start your free trial of the Soccer Platform
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RegisterForm />
-        </CardContent>
-      </Card>
-    </AuthLayout>
-  );
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
+          <p className="text-sm text-muted-foreground">
+            Enter your details to create your coaching account
+          </p>
+        </div>
+        <SignupForm />
+      </div>
+    </div>
+  )
 }
 
-// apps/web/src/components/auth/register-form.tsx
-export function RegisterForm() {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string>();
-  
-  async function handleSubmit(formData: FormData) {
-    startTransition(async () => {
-      const result = await registerUser(formData);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        router.push('/verify-email');
-      }
-    });
-  }
+// apps/web/src/components/auth/signup-form.tsx (already exists - matches this pattern)
+'use client'
+
+import { useFormState } from 'react-dom'
+import { registerUser } from '@/app/auth/signup/actions'
+
+export function SignupForm() {
+  const [state, formAction] = useFormState(registerUser, null)
   
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <div>
-        <Label htmlFor="email">Email</Label>
-        <Input
+        <label htmlFor="email" className="block text-sm font-medium">
+          Email
+        </label>
+        <input
           id="email"
           name="email"
           type="email"
           required
-          placeholder="coach@club.com"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+          placeholder="coach@example.com"
         />
       </div>
       
       <div>
-        <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          placeholder="••••••••"
-        />
-      </div>
-      
-      <div>
-        <Label htmlFor="name">Full Name</Label>
-        <Input
+        <label htmlFor="name" className="block text-sm font-medium">
+          Full Name
+        </label>
+        <input
           id="name"
           name="name"
-          required
+          type="text"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
           placeholder="John Smith"
         />
       </div>
       
       <div>
-        <Label htmlFor="clubName">Club Name</Label>
-        <Input
+        <label htmlFor="clubName" className="block text-sm font-medium">
+          Club Name
+        </label>
+        <input
           id="clubName"
           name="clubName"
-          required
+          type="text"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
           placeholder="FC United"
         />
       </div>
       
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+      {state?.error && (
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="text-sm text-red-700">{state.error}</div>
+        </div>
       )}
       
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? 'Creating account...' : 'Create account'}
-      </Button>
+      {state?.success && (
+        <div className="rounded-md bg-green-50 p-4">
+          <div className="text-sm text-green-700">{state.message}</div>
+        </div>
+      )}
       
-      <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
-        <Link href="/login" className="underline">
-          Sign in
-        </Link>
-      </p>
+      <button
+        type="submit"
+        className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+      >
+        Send Magic Link
+      </button>
     </form>
-  );
+  )
 }
 ```
 
 ## Implementation Steps
-1. Configure Supabase Auth settings
-2. Create database trigger for user profiles
-3. Create RPC function for club creation
-4. Build registration page and form
-5. Implement server action
-6. Create email verification page
-7. Add auth callback handler
-8. Test full flow end-to-end
+1. ✅ **NextAuth Configuration** - Already implemented in `src/lib/auth.ts`
+2. ✅ **Magic Link System** - Already implemented in `src/lib/auth/magic-link.ts`
+3. ✅ **Registration Server Actions** - Already implemented in `src/lib/auth/actions.ts`
+4. ✅ **Database Schema** - NextAuth tables + custom magic links in Prisma schema
+5. ✅ **Registration Pages** - Already exist at `/auth/signup` and `/auth/login`
+6. ✅ **Token Verification** - Already implemented in `/auth/verify/route.ts`
+7. 🔲 **Club Creation Logic** - Verify club creation works in verification flow
+8. 🔲 **Error Handling** - Enhance error messages and validation
+9. 🔲 **Rate Limiting** - Consider Redis-based rate limiting for production
+10. 🔲 **E2E Testing** - Comprehensive test coverage
 
-## Database Function
+## Current Database Schema (Already Implemented)
 ```sql
--- Create function to handle club creation with owner
-CREATE OR REPLACE FUNCTION create_club_with_owner(
-  user_id UUID,
-  club_name TEXT,
-  user_role user_role_type DEFAULT 'admin'
-)
-RETURNS void AS $$
-DECLARE
-  new_club_id UUID;
-BEGIN
-  -- Create club
-  INSERT INTO clubs (name, created_by)
-  VALUES (club_name, user_id)
-  RETURNING id INTO new_club_id;
-  
-  -- Create user-club association
-  INSERT INTO user_club_roles (user_id, club_id, role, is_primary, permissions)
-  VALUES (
-    user_id,
-    new_club_id,
-    user_role,
-    true,
-    '{"all": true}'::jsonb
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- NextAuth tables (automatically managed)
+CREATE TABLE accounts (...);
+CREATE TABLE auth_sessions (...);
+CREATE TABLE verification_tokens (...);
+
+-- Custom magic links table
+CREATE TABLE magic_links (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR NOT NULL,
+  token VARCHAR UNIQUE NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Club creation in registration flow
+-- Handled in server action transaction:
+-- 1. Create user account (NextAuth)
+-- 2. Create club record
+-- 3. Create user_club association with admin role
 ```
 
-## Testing
-- New user can register with valid details
-- Duplicate email shows appropriate error
-- Weak password rejected (min 8 chars)
-- Email verification required before access
-- Profile and club created correctly
-- User redirected to dashboard after verification
-- Form validation works properly
+## Testing Scenarios
+- ✅ **Magic Link Generation**: User receives email with working magic link
+- ✅ **Email Validation**: Invalid emails rejected with clear error message
+- ✅ **Rate Limiting**: Excessive requests properly throttled (3 per 15 minutes)
+- 🔲 **Club Creation**: New club created and user assigned admin role
+- 🔲 **Registration Intent**: Name and club name properly stored and applied
+- 🔲 **Token Expiration**: Expired magic links show appropriate error
+- 🔲 **Duplicate Registration**: Existing users handled gracefully
+- 🔲 **Email Delivery**: Magic links delivered via MailHog (dev) and SMTP (prod)
+- 🔲 **Session Creation**: User properly logged in after verification
+- 🔲 **Dashboard Redirect**: Successful verification redirects to dashboard
 
-## Security Considerations
-- Rate limit registration attempts (5 per hour per IP)
-- Password requirements enforced by Supabase
-- CAPTCHA for public registration (future)
-- Log registration attempts
-- Sanitize club name input
+## Security Features (Current Implementation)
+- ✅ **Rate Limiting**: 3 attempts per email per 15 minutes (in-memory, Redis for prod)
+- ✅ **Token Expiration**: Magic links expire after 10 minutes
+- ✅ **CSRF Protection**: Built-in NextAuth protection
+- ✅ **Email Validation**: Zod schema validation on server
+- ✅ **Secure Sessions**: Database-based sessions with secure cookies
+- 🔲 **Input Sanitization**: Validate and sanitize club name input
+- 🔲 **Audit Logging**: Track all authentication events
 
-## Notes
-- Invitation system deferred to Sprint 2
-- Social login in future sprint
-- Add password strength indicator
-- Consider magic link option
-- Track registration analytics
+## Developer Notes
+- **Architecture**: NextAuth 5.0 with database sessions (required for email provider)
+- **Email Provider**: Nodemailer via NextAuth, MailHog for development
+- **Registration Intent**: Temporary storage for club creation data (use Redis in production)
+- **Testing**: E2E tests should cover full magic link flow
+- **Monitoring**: Track magic link generation and verification rates

@@ -7,8 +7,10 @@
 - **Network Isolation:** Separate networks for services
 
 ## Application Security
-- **Magic Link Auth:** No passwords to compromise
-- **JWT Sessions:** Secure, stateless authentication
+- **NextAuth Email Authentication:** No passwords to compromise, industry-standard security
+- **Database Sessions:** Secure, server-side session management with automatic cleanup
+- **CSRF Protection:** Built-in CSRF protection via NextAuth
+- **Token Security:** Cryptographically secure tokens with automatic rotation
 - **HTTPS Only:** Enforced via Cloudflare
 - **Environment Variables:** Injected at runtime, not in images
 - **Rate Limiting:** Redis-based request throttling

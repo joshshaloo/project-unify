@@ -14,18 +14,19 @@
 
 **Technology Stack:** Next.js 14+, React 18+, TypeScript, tRPC, Docker
 
-## Authentication (Magic Links)
+## Authentication (NextAuth)
 
-**Responsibility:** Passwordless authentication via email
+**Responsibility:** Passwordless authentication via email using NextAuth
 **Key Features:**
-- Time-limited magic link tokens
-- JWT session management
-- Secure token generation and storage
-- Email-based user verification
-- Simple user onboarding flow
-- Cookie-based session persistence
+- Email provider for passwordless authentication
+- Database session management via Prisma adapter
+- Secure token generation and verification
+- Email-based user verification (magic links)
+- Automatic user account creation
+- Cookie-based session persistence with CSRF protection
+- Built-in security features (rate limiting, token rotation)
 
-**Technology Stack:** Custom implementation with JWT, nodemailer, PostgreSQL
+**Technology Stack:** NextAuth 5.0+ with Nodemailer provider, Prisma adapter, PostgreSQL
 
 ## Database Layer
 

@@ -62,6 +62,12 @@ services:
       - /mnt/truenas/docker_volumes/project-unity/prod/backups:/backups
     ports:
       - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     deploy:
       placement:
         constraints:
@@ -73,6 +79,8 @@ services:
       - postgres_password
     command: >
       sh -c '
+      echo "Waiting 10 seconds for postgres to start...";
+      sleep 10;
       export PGPASSWORD=$$(cat /run/secrets/postgres_password) &&
       until pg_isready -h postgres -U postgres; do
         echo "Waiting for postgres...";

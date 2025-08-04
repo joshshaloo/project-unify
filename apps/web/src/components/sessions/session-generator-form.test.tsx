@@ -217,7 +217,7 @@ describe('SessionGeneratorForm', () => {
   describe('form submission', () => {
     it('should submit form with correct data', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         // Trigger the onSuccess callback
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
@@ -255,7 +255,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should parse focus areas correctly', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -286,7 +286,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should handle empty focus areas and equipment', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -317,7 +317,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should trim and filter empty focus areas', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -378,7 +378,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should reset loading state after successful submission', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -407,7 +407,7 @@ describe('SessionGeneratorForm', () => {
   describe('success handling', () => {
     it('should show success message on successful generation', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -433,7 +433,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should redirect to session page on success', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -470,7 +470,7 @@ describe('SessionGeneratorForm', () => {
       })
 
       // Then submit successfully
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onSuccess) {
           mockCallbacks.onSuccess(mockGeneratedSession)
         }
@@ -498,7 +498,7 @@ describe('SessionGeneratorForm', () => {
     it('should show error message on failed generation', async () => {
       const user = userEvent.setup()
       const errorMessage = 'Failed to generate session: AI service unavailable'
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onError) {
           mockCallbacks.onError(new Error(errorMessage))
         }
@@ -524,7 +524,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should show generic error message for unknown errors', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onError) {
           mockCallbacks.onError(new Error())
         }
@@ -550,7 +550,7 @@ describe('SessionGeneratorForm', () => {
 
     it('should reset loading state after error', async () => {
       const user = userEvent.setup()
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         if (mockCallbacks.onError) {
           mockCallbacks.onError(new Error('Test error'))
         }
@@ -582,7 +582,7 @@ describe('SessionGeneratorForm', () => {
 
       // First succeed
       let callCount = 0
-      mockMutateAsync.mockImplementation(async (data) => {
+      mockMutateAsync.mockImplementation(async (_data) => {
         callCount++
         if (callCount === 1) {
           if (mockCallbacks.onSuccess) {

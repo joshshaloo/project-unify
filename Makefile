@@ -86,6 +86,7 @@ help:
 	@echo "  $(GREEN)make test$(NC)           - Run all tests"
 	@echo "  $(GREEN)make test-unit$(NC)      - Run unit tests only"
 	@echo "  $(GREEN)make test-e2e$(NC)       - Run E2E tests only"
+	@echo "  $(GREEN)make validate$(NC)       - Run all CI checks locally before pushing"
 	@echo ""
 	@echo "$(BOLD)🏗️  Build & Deploy$(NC)"
 	@echo "  $(GREEN)make build$(NC)          - Build Docker image"
@@ -257,6 +258,88 @@ test-e2e:
 test-watch:
 	@echo "$(CYAN)🧪 Running tests in watch mode...$(NC)"
 	@cd apps/web && pnpm vitest --watch
+
+#
+# ✅ Validation Commands
+#
+
+## validate: Run all checks that CI will run before pushing code
+.PHONY: validate
+validate:
+	@echo "$(CYAN)🔍 Running CI validation checks locally...$(NC)"
+	@echo "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@echo ""
+	@echo "$(BOLD)1/6$(NC) Installing dependencies..."
+	@pnpm install --frozen-lockfile
+	@echo "$(GREEN)✓ Dependencies installed$(NC)"
+	@echo ""
+	@echo "$(BOLD)2/6$(NC) Generating Prisma types..."
+	@cd apps/web && pnpm prisma generate
+	@echo "$(GREEN)✓ Prisma types generated$(NC)"
+	@echo ""
+	@echo "$(BOLD)3/6$(NC) Running type check..."
+	@if pnpm typecheck; then \
+		echo "$(GREEN)✓ Type check passed$(NC)"; \
+	else \
+		echo "$(RED)✗ Type check failed$(NC)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "$(BOLD)4/6$(NC) Running linter..."
+	@if pnpm --filter="!@soccer/web" lint && pnpm --filter @soccer/web lint:ci; then \
+		echo "$(GREEN)✓ Linting passed$(NC)"; \
+	else \
+		echo "$(RED)✗ Linting failed$(NC)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "$(BOLD)5/6$(NC) Running unit tests..."
+	@if CI=true pnpm test; then \
+		echo "$(GREEN)✓ Unit tests passed$(NC)"; \
+	else \
+		echo "$(RED)✗ Unit tests failed$(NC)"; \
+		echo "$(YELLOW)Tip: Run 'make test' to see detailed output$(NC)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "$(BOLD)6/6$(NC) Building Docker image..."
+	@if docker build --target runner \
+		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
+		--build-arg NEXTAUTH_SECRET="test-secret-for-build-only" \
+		--build-arg NEXTAUTH_URL="http://localhost:3000" \
+		-t $(IMAGE_NAME):validate-$(GIT_SHA) .; then \
+		echo "$(GREEN)✓ Docker build successful$(NC)"; \
+		docker rmi $(IMAGE_NAME):validate-$(GIT_SHA) >/dev/null 2>&1 || true; \
+	else \
+		echo "$(RED)✗ Docker build failed$(NC)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "$(GREEN)$(BOLD)✅ All validation checks passed!$(NC)"
+	@echo "$(YELLOW)Your code is ready to be committed and pushed.$(NC)"
+	@echo ""
+	@echo "$(CYAN)Next steps:$(NC)"
+	@echo "  1. $(BOLD)git add -A$(NC)"
+	@echo "  2. $(BOLD)git commit -m \"your commit message\"$(NC)"
+	@echo "  3. $(BOLD)git push$(NC)"
+
+## typecheck: Run TypeScript type checking
+.PHONY: typecheck
+typecheck:
+	@echo "$(CYAN)🔍 Running type check...$(NC)"
+	@pnpm typecheck
+
+## lint: Run linting
+.PHONY: lint
+lint:
+	@echo "$(CYAN)🔍 Running linter...$(NC)"
+	@pnpm lint
+
+## lint-fix: Run linting with auto-fix
+.PHONY: lint-fix
+lint-fix:
+	@echo "$(CYAN)🔍 Running linter with auto-fix...$(NC)"
+	@pnpm lint:fix
 
 #
 # 🏗️ Build & Deploy Commands

@@ -1,6 +1,6 @@
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # Copy workspace files
@@ -15,6 +15,7 @@ RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
 # Stage 2: Build
 FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Enable pnpm
@@ -36,6 +37,7 @@ RUN pnpm test:integration --filter=@soccer/web
 
 # Stage 4: Production
 FROM node:20-alpine AS runner
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 ENV NODE_ENV=production

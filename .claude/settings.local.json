@@ -106,7 +106,12 @@
       "Bash(pntml playwright test:*)",
       "Bash(md-tree:*)",
       "Bash(CI=true pnpm test)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(docker build:*)",
+      "Bash(--build-arg DATABASE_URL=\"postgresql://postgres:password@localhost:5432/test\" )",
+      "Bash(--build-arg NEXTAUTH_SECRET=\"test-secret-for-build-only\" )",
+      "Bash(--build-arg NEXTAUTH_URL=\"http://localhost:3000\" )",
+      "Bash(-t ghcr.io/joshshaloo/soccer/project-unify:validate-test .)"
     ],
     "deny": []
   },

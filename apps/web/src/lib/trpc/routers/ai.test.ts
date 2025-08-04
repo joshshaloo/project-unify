@@ -117,19 +117,7 @@ describe('AI Router', () => {
       },
     }
 
-    const mockCreatedSession = {
-      id: 'session-123',
-      clubId: 'club-123',
-      teamId: 'team-123',
-      createdByUserId: 'test-user-id',
-      title: 'Passing and Shooting Training',
-      date: mockSessionInput.date,
-      duration: 90,
-      type: 'training',
-      status: 'draft',
-      aiGenerated: true,
-      plan: {},
-    }
+    // Unused - removed to fix lint error
 
     beforeEach(() => {
       // Setup default mocks

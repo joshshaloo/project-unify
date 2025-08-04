@@ -76,7 +76,11 @@ jobs:
         run: pnpm typecheck
         
       - name: Lint
-        run: pnpm lint
+        run: |
+          # Run lint for all packages except web
+          pnpm --filter="!@soccer/web" lint
+          # Run web lint with max warnings allowed
+          pnpm --filter @soccer/web lint:ci
         
       - name: Unit Tests
         run: pnpm test

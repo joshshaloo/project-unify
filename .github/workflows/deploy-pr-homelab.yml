@@ -1,0 +1,256 @@
+name: Deploy PR to Homelab
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push-pr:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=pr,prefix=pr-
+            type=sha,prefix=pr-${{ github.event.pull_request.number }}-
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: runner
+          build-args: |
+            NEXT_PUBLIC_APP_URL=https://pr-${{ github.event.pull_request.number }}.soccer-unify.homelab.internal
+
+  deploy-pr-preview:
+    needs: build-and-push-pr
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
+    
+    steps:
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      
+      - name: Deploy PR to Homelab
+        id: deploy
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          IMAGE_TAG: pr-${{ github.event.pull_request.number }}
+        run: |
+          # Create stack name for PR
+          STACK_NAME="soccer-pr-${PR_NUMBER}"
+          PREVIEW_URL="https://pr-${PR_NUMBER}.soccer-unify.homelab.internal"
+          
+          # Deploy or update stack via Portainer API
+          curl -X PUT \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "'${STACK_NAME}'",
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${IMAGE_TAG}'",
+              "env": {
+                "NODE_ENV": "preview",
+                "DATABASE_URL": "${{ secrets.DATABASE_URL_PREVIEW }}",
+                "DIRECT_URL": "${{ secrets.DIRECT_URL_PREVIEW }}",
+                "NEXT_PUBLIC_APP_URL": "'${PREVIEW_URL}'",
+                "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+                "N8N_WEBHOOK_URL": "${{ secrets.N8N_WEBHOOK_URL }}",
+                "PORT": "3000"
+              },
+              "labels": {
+                "traefik.enable": "true",
+                "traefik.http.routers.pr-'${PR_NUMBER}'.rule": "Host(\`pr-'${PR_NUMBER}'.soccer-unify.homelab.internal\`)",
+                "traefik.http.routers.pr-'${PR_NUMBER}'.tls": "true",
+                "traefik.http.services.pr-'${PR_NUMBER}'.loadbalancer.server.port": "3000",
+                "com.soccer.pr": "'${PR_NUMBER}'",
+                "com.soccer.type": "preview"
+              }
+            }' \
+            https://portainer.homelab.internal:9443/api/stacks/${STACK_NAME}/git/deploy || \
+          curl -X POST \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "'${STACK_NAME}'",
+              "type": 2,
+              "method": "string",
+              "stackFileContent": "version: \"3.9\"\nservices:\n  web:\n    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${IMAGE_TAG}'\n    environment:\n      - NODE_ENV=preview\n      - DATABASE_URL=${{ secrets.DATABASE_URL_PREVIEW }}\n      - DIRECT_URL=${{ secrets.DIRECT_URL_PREVIEW }}\n      - NEXT_PUBLIC_APP_URL='${PREVIEW_URL}'\n      - OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}\n      - N8N_WEBHOOK_URL=${{ secrets.N8N_WEBHOOK_URL }}\n      - PORT=3000\n    labels:\n      - traefik.enable=true\n      - traefik.http.routers.pr-'${PR_NUMBER}'.rule=Host(\`pr-'${PR_NUMBER}'.soccer-unify.homelab.internal\`)\n      - traefik.http.routers.pr-'${PR_NUMBER}'.tls=true\n      - traefik.http.services.pr-'${PR_NUMBER}'.loadbalancer.server.port=3000\n      - com.soccer.pr='${PR_NUMBER}'\n      - com.soccer.type=preview\n    networks:\n      - traefik\n    deploy:\n      replicas: 1\n      update_config:\n        parallelism: 1\n        delay: 10s\n      restart_policy:\n        condition: on-failure\n        delay: 5s\n        max_attempts: 3\nnetworks:\n  traefik:\n    external: true"
+            }' \
+            https://portainer.homelab.internal:9443/api/stacks?type=2&endpointId=1
+          
+          echo "preview-url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+      
+      - name: Wait for deployment
+        run: |
+          for i in {1..30}; do
+            if curl -f "${{ steps.deploy.outputs.preview-url }}/api/health" \
+              --connect-timeout 10 \
+              --resolve "pr-${{ github.event.pull_request.number }}.soccer-unify.homelab.internal:443:$(dig +short portainer.homelab.internal)" \
+              -k; then
+              echo "Deployment is ready!"
+              break
+            fi
+            echo "Waiting for deployment... ($i/30)"
+            sleep 10
+          done
+      
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.issue.number;
+            const previewUrl = '${{ steps.deploy.outputs.preview-url }}';
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Preview Deployment')
+            );
+            
+            const body = `## 🚀 Preview Deployment Ready!
+            
+            **Preview URL:** ${previewUrl}
+            **Stack:** soccer-pr-${prNumber}
+            
+            The deployment will be automatically cleaned up when this PR is closed.`;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }
+
+  test-pr-preview:
+    needs: deploy-pr-preview
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/web
+      
+      - name: Run E2E tests against preview
+        run: pnpm test:e2e --project=chromium
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ needs.deploy-pr-preview.outputs.preview-url }}
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-test-results-${{ github.event.pull_request.number }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7
+
+  cleanup-pr-preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      
+      - name: Remove PR Stack
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          STACK_NAME="soccer-pr-${PR_NUMBER}"
+          
+          # Delete the stack
+          curl -X DELETE \
+            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
+            https://portainer.homelab.internal:9443/api/stacks/${STACK_NAME}
+          
+          echo "✅ Cleaned up preview deployment for PR #${PR_NUMBER}"
+      
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🧹 Preview deployment has been cleaned up.'
+            });

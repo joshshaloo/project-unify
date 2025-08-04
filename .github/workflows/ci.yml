@@ -57,7 +57,7 @@ jobs:
   build-and-push:
     needs: validate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     permissions:
       contents: read
       packages: write
@@ -82,7 +82,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
       
@@ -117,10 +116,10 @@ jobs:
             -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}",
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop",
               "env": "preview"
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-preview/update
+            https://portainer.homelab.internal:9443/api/stacks/soccer-preview/git/deploy
             
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main'
@@ -132,12 +131,12 @@ jobs:
               "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest",
               "env": "production"
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-prod/update
+            https://portainer.homelab.internal:9443/api/stacks/soccer-prod/git/deploy
 
   e2e-tests:
     needs: deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     
     steps:
       - uses: actions/checkout@v4
@@ -157,10 +156,20 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/web
       
+      - name: Set test URL based on branch
+        id: set-url
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "test_url=https://preview.soccer-unify.com" >> $GITHUB_OUTPUT
+          else
+            echo "test_url=https://soccer-unify.com" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Wait for deployment
         run: |
+          TEST_URL="${{ steps.set-url.outputs.test_url }}"
           for i in {1..30}; do
-            if curl -f "https://preview.soccer-unify.com/api/health" --connect-timeout 10; then
+            if curl -f "${TEST_URL}/api/health" --connect-timeout 10; then
               echo "Deployment is ready!"
               break
             fi
@@ -172,4 +181,4 @@ jobs:
         run: pnpm test:e2e
         working-directory: apps/web
         env:
-          PLAYWRIGHT_BASE_URL: https://preview.soccer-unify.com
+          PLAYWRIGHT_BASE_URL: ${{ steps.set-url.outputs.test_url }}

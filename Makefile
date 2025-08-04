@@ -22,6 +22,25 @@ BOLD := \033[1m
 PROJECT_NAME := Soccer Project Unify
 TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
+# Docker registry settings
+REGISTRY := ghcr.io
+GITHUB_USER := joshshaloo
+GITHUB_REPO := soccer/project-unify
+IMAGE_NAME := $(REGISTRY)/$(GITHUB_USER)/$(GITHUB_REPO)
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_SHA := $(shell git rev-parse --short HEAD)
+
+# Image tags based on branch
+ifeq ($(GIT_BRANCH),main)
+	IMAGE_TAG := latest
+else ifeq ($(GIT_BRANCH),develop)
+	IMAGE_TAG := develop
+else
+	# For feature branches and PRs - replace slashes with dashes
+	SAFE_BRANCH := $(shell echo $(GIT_BRANCH) | sed 's/\//-/g')
+	IMAGE_TAG := $(SAFE_BRANCH)-$(GIT_SHA)
+endif
+
 # Environment detection
 ENV ?= dev
 ifeq ($(ENV),prod)
@@ -69,8 +88,11 @@ help:
 	@echo "  $(GREEN)make test-e2e$(NC)       - Run E2E tests only"
 	@echo ""
 	@echo "$(BOLD)🏗️  Build & Deploy$(NC)"
-	@echo "  $(GREEN)make build$(NC)          - Build production images"
+	@echo "  $(GREEN)make build$(NC)          - Build Docker image"
+	@echo "  $(GREEN)make push$(NC)           - Push image to GitHub registry"
+	@echo "  $(GREEN)make docker-login$(NC)   - Login to GitHub Container Registry"
 	@echo "  $(GREEN)make deploy$(NC)         - Deploy to current ENV (dev/preview/prod)"
+	@echo "  $(GREEN)make deploy-pr$(NC)      - Deploy PR preview (use PR=123)"
 	@echo "  $(GREEN)make preview$(NC)        - Deploy to preview environment"
 	@echo "  $(GREEN)make prod$(NC)           - Deploy to production (with confirmation)"
 	@echo ""
@@ -240,47 +262,128 @@ test-watch:
 # 🏗️ Build & Deploy Commands
 #
 
-## build: Build production images
+## docker-login: Login to GitHub Container Registry
+.PHONY: docker-login
+docker-login:
+	@echo "$(CYAN)🔑 Logging into GitHub Container Registry...$(NC)"
+	@echo "$(YELLOW)You'll need a GitHub Personal Access Token with 'write:packages' scope$(NC)"
+	@echo -n "GitHub Username: " && read username && \
+	echo -n "GitHub Token: " && read -s token && echo && \
+	echo $$token | docker login $(REGISTRY) -u $$username --password-stdin
+	@echo "$(GREEN)✓ Login successful!$(NC)"
+
+## build: Build Docker image
 .PHONY: build
 build:
-	@echo "$(CYAN)🔨 Building production images...$(NC)"
-	@cd apps/web && docker build -t ghcr.io/$(shell git config --get remote.origin.url | sed 's/.*://;s/.git$$//'):latest .
+	@echo "$(CYAN)🔨 Building Docker image...$(NC)"
+	@echo "Image: $(IMAGE_NAME):$(IMAGE_TAG)"
+	@docker build -t $(IMAGE_NAME):$(IMAGE_TAG) -t $(IMAGE_NAME):$(GIT_SHA) .
 	@echo "$(GREEN)✓ Build complete!$(NC)"
+	@echo "Tagged as:"
+	@echo "  - $(IMAGE_NAME):$(IMAGE_TAG)"
+	@echo "  - $(IMAGE_NAME):$(GIT_SHA)"
 
-## deploy: Deploy to current environment
+## push: Push image to GitHub Container Registry
+.PHONY: push
+push:
+	@echo "$(CYAN)📤 Pushing to GitHub Container Registry...$(NC)"
+	@docker push $(IMAGE_NAME):$(IMAGE_TAG)
+	@docker push $(IMAGE_NAME):$(GIT_SHA)
+	@echo "$(GREEN)✓ Push complete!$(NC)"
+
+## build-push: Build and push in one command
+.PHONY: build-push
+build-push: build push
+
+## deploy: Deploy to current environment via Portainer
 .PHONY: deploy
 deploy:
 	@echo "$(CYAN)🚀 Deploying to $(ENV_NAME)...$(NC)"
 ifeq ($(ENV),prod)
-	@$(MAKE) prod
+	@$(MAKE) deploy-prod
 else ifeq ($(ENV),preview)
-	@$(MAKE) preview
+	@$(MAKE) deploy-preview
 else
 	@echo "$(RED)❌ Cannot deploy to development. Use 'make start' instead.$(NC)"
 endif
 
-## preview: Deploy to preview environment
-.PHONY: preview
-preview:
-	@echo "$(CYAN)🔍 Deploying to Preview...$(NC)"
-	@ENV=preview $(MAKE) build
-	@ENV=preview $(MAKE) start
-	@echo "$(GREEN)✓ Preview deployed!$(NC)"
-	@echo "$(YELLOW)View at: https://preview.soccer-unify.com$(NC)"
+## deploy-preview: Deploy to preview environment via Portainer
+.PHONY: deploy-preview
+deploy-preview:
+	@echo "$(CYAN)🔍 Deploying to Preview via Portainer...$(NC)"
+	@echo "$(YELLOW)Connecting via Tailscale...$(NC)"
+	@curl -X POST \
+		-H "X-API-Key: $${PORTAINER_API_KEY}" \
+		-H "Content-Type: application/json" \
+		-d '{"image": "$(IMAGE_NAME):develop", "env": "preview"}' \
+		https://portainer.homelab.internal:9443/api/stacks/soccer-preview/git/deploy
+	@echo "$(GREEN)✓ Preview deployment triggered!$(NC)"
+	@echo "$(YELLOW)URL: https://preview.soccer-unify.com$(NC)"
 
-## prod: Deploy to production (with confirmation)
-.PHONY: prod
-prod:
+## deploy-prod: Deploy to production via Portainer
+.PHONY: deploy-prod
+deploy-prod:
 	@echo "$(RED)$(BOLD)⚠️  PRODUCTION DEPLOYMENT ⚠️$(NC)"
 	@echo "$(YELLOW)This will deploy to the live production environment.$(NC)"
 	@echo -n "$(BOLD)Are you sure? Type 'deploy-to-prod' to confirm: $(NC)"
 	@read confirm && [ "$$confirm" = "deploy-to-prod" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
-	@echo "$(CYAN)🚀 Deploying to Production...$(NC)"
-	@$(MAKE) backup ENV=prod
-	@ENV=prod $(MAKE) build
-	@ENV=prod $(MAKE) start
-	@echo "$(GREEN)✓ Production deployed!$(NC)"
-	@echo "$(YELLOW)View at: https://soccer-unify.com$(NC)"
+	@echo "$(CYAN)🚀 Deploying to Production via Portainer...$(NC)"
+	@curl -X POST \
+		-H "X-API-Key: $${PORTAINER_API_KEY}" \
+		-H "Content-Type: application/json" \
+		-d '{"image": "$(IMAGE_NAME):latest", "env": "production"}' \
+		https://portainer.homelab.internal:9443/api/stacks/soccer-prod/git/deploy
+	@echo "$(GREEN)✓ Production deployment triggered!$(NC)"
+	@echo "$(YELLOW)URL: https://soccer-unify.com$(NC)"
+
+## deploy-pr: Deploy PR preview
+.PHONY: deploy-pr
+deploy-pr:
+ifndef PR
+	@echo "$(RED)❌ Please specify PR number: make deploy-pr PR=123$(NC)"
+	@exit 1
+endif
+	@echo "$(CYAN)🔍 Deploying PR #$(PR) preview...$(NC)"
+	@echo "Building PR image..."
+	@docker build -t $(IMAGE_NAME):pr-$(PR) .
+	@echo "Pushing PR image..."
+	@docker push $(IMAGE_NAME):pr-$(PR)
+	@echo "Deploying to Portainer..."
+	@curl -X POST \
+		-H "X-API-Key: $${PORTAINER_API_KEY}" \
+		-H "Content-Type: application/json" \
+		-d '{ \
+			"name": "soccer-pr-$(PR)", \
+			"type": 2, \
+			"method": "string", \
+			"stackFileContent": "version: \"3.9\"\nservices:\n  web:\n    image: $(IMAGE_NAME):pr-$(PR)\n    environment:\n      - NODE_ENV=preview\n      - DATABASE_URL=$${DATABASE_URL_PREVIEW}\n      - DIRECT_URL=$${DIRECT_URL_PREVIEW}\n      - NEXT_PUBLIC_APP_URL=https://pr-$(PR).soccer-unify.homelab.internal\n      - OPENAI_API_KEY=$${OPENAI_API_KEY}\n      - N8N_WEBHOOK_URL=$${N8N_WEBHOOK_URL}\n      - PORT=3000\n    labels:\n      - traefik.enable=true\n      - traefik.http.routers.pr-$(PR).rule=Host(\`pr-$(PR).soccer-unify.homelab.internal\`)\n      - traefik.http.routers.pr-$(PR).tls=true\n      - traefik.http.services.pr-$(PR).loadbalancer.server.port=3000\n      - com.soccer.pr=$(PR)\n      - com.soccer.type=preview\n    networks:\n      - traefik\n    deploy:\n      replicas: 1\n      update_config:\n        parallelism: 1\n        delay: 10s\n      restart_policy:\n        condition: on-failure\n        delay: 5s\n        max_attempts: 3\nnetworks:\n  traefik:\n    external: true" \
+		}' \
+		https://portainer.homelab.internal:9443/api/stacks?type=2&endpointId=1
+	@echo "$(GREEN)✓ PR #$(PR) deployed!$(NC)"
+	@echo "$(YELLOW)URL: https://pr-$(PR).soccer-unify.homelab.internal$(NC)"
+
+## cleanup-pr: Cleanup PR preview deployment
+.PHONY: cleanup-pr
+cleanup-pr:
+ifndef PR
+	@echo "$(RED)❌ Please specify PR number: make cleanup-pr PR=123$(NC)"
+	@exit 1
+endif
+	@echo "$(YELLOW)🧹 Cleaning up PR #$(PR) preview...$(NC)"
+	@curl -X DELETE \
+		-H "X-API-Key: $${PORTAINER_API_KEY}" \
+		https://portainer.homelab.internal:9443/api/stacks/soccer-pr-$(PR)
+	@echo "$(GREEN)✓ PR #$(PR) preview cleaned up!$(NC)"
+
+## preview: Deploy to preview environment  
+.PHONY: preview
+preview: ENV=preview
+preview: deploy-preview
+
+## prod: Deploy to production
+.PHONY: prod
+prod: ENV=prod
+prod: deploy-prod
 
 #
 # 🗄️ Database Commands

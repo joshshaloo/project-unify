@@ -1,12 +1,14 @@
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl1.1-compat
 WORKDIR /app
 
 # Copy workspace files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json ./apps/web/
-COPY packages/*/package.json ./packages/*/
+COPY packages/config/package.json ./packages/config/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/ui/package.json ./packages/ui/
 
 # Install dependencies
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
@@ -14,6 +16,10 @@ RUN corepack enable pnpm && pnpm install --frozen-lockfile
 # Stage 2: Build
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable pnpm
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 

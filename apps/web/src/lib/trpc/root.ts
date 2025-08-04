@@ -4,6 +4,8 @@ import { authRouter } from './routers/auth';
 import { invitationRouter } from './routers/invitation';
 import { clubsRouter } from './routers/clubs';
 import { aiRouter } from './routers/ai';
+import { teamsRouter } from './routers/teams';
+import { sessionsRouter } from './routers/sessions';
 
 /**
  * This is the primary router for your server.
@@ -15,6 +17,8 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   invitation: invitationRouter,
   clubs: clubsRouter,
+  teams: teamsRouter,
+  sessions: sessionsRouter,
   ai: aiRouter,
 });
 

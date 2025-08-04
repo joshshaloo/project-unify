@@ -112,26 +112,30 @@ jobs:
       - name: Deploy to Preview
         if: github.ref == 'refs/heads/develop'
         run: |
-          curl -X POST \
+          # Update the stack with new image tag
+          curl -X PUT \
             -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop",
-              "env": "preview"
+              "env": {
+                "GITHUB_SHA": "${{ github.sha }}"
+              }
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-preview/git/deploy
+            https://portainer.homelab.internal:9443/api/stacks/soccer-preview?endpointId=1
             
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main'
         run: |
-          curl -X POST \
+          # Update the stack with new image tag
+          curl -X PUT \
             -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest",
-              "env": "production"
+              "env": {
+                "GITHUB_SHA": "${{ github.sha }}"
+              }
             }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-prod/git/deploy
+            https://portainer.homelab.internal:9443/api/stacks/soccer-prod?endpointId=1
 
   e2e-tests:
     needs: deploy

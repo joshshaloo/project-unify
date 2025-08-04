@@ -92,11 +92,7 @@ jobs:
               "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${IMAGE_TAG}'",
               "env": {
                 "NODE_ENV": "preview",
-                "DATABASE_URL": "${{ secrets.DATABASE_URL_PREVIEW }}",
-                "DIRECT_URL": "${{ secrets.DIRECT_URL_PREVIEW }}",
                 "NEXT_PUBLIC_APP_URL": "'${PREVIEW_URL}'",
-                "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
-                "N8N_WEBHOOK_URL": "${{ secrets.N8N_WEBHOOK_URL }}",
                 "PORT": "3000"
               },
               "labels": {
@@ -116,7 +112,7 @@ jobs:
               "name": "'${STACK_NAME}'",
               "type": 2,
               "method": "string",
-              "stackFileContent": "version: \"3.9\"\nservices:\n  web:\n    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${IMAGE_TAG}'\n    environment:\n      - NODE_ENV=preview\n      - DATABASE_URL=${{ secrets.DATABASE_URL_PREVIEW }}\n      - DIRECT_URL=${{ secrets.DIRECT_URL_PREVIEW }}\n      - NEXT_PUBLIC_APP_URL='${PREVIEW_URL}'\n      - OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}\n      - N8N_WEBHOOK_URL=${{ secrets.N8N_WEBHOOK_URL }}\n      - PORT=3000\n    labels:\n      - traefik.enable=true\n      - traefik.http.routers.pr-'${PR_NUMBER}'.rule=Host(\`pr-'${PR_NUMBER}'.soccer-unify.homelab.internal\`)\n      - traefik.http.routers.pr-'${PR_NUMBER}'.tls=true\n      - traefik.http.services.pr-'${PR_NUMBER}'.loadbalancer.server.port=3000\n      - com.soccer.pr='${PR_NUMBER}'\n      - com.soccer.type=preview\n    networks:\n      - traefik\n    deploy:\n      replicas: 1\n      update_config:\n        parallelism: 1\n        delay: 10s\n      restart_policy:\n        condition: on-failure\n        delay: 5s\n        max_attempts: 3\nnetworks:\n  traefik:\n    external: true"
+              "stackFileContent": "version: \"3.9\"\nservices:\n  web:\n    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:'${IMAGE_TAG}'\n    environment:\n      - NODE_ENV=preview\n      - DATABASE_URL=${{ secrets.DATABASE_URL_PREVIEW }}\n      - NEXT_PUBLIC_APP_URL='${PREVIEW_URL}'\n      - OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}\n      - N8N_WEBHOOK_URL=${{ secrets.N8N_WEBHOOK_URL }}\n      - PORT=3000\n    labels:\n      - traefik.enable=true\n      - traefik.http.routers.pr-'${PR_NUMBER}'.rule=Host(\`pr-'${PR_NUMBER}'.soccer-unify.homelab.internal\`)\n      - traefik.http.routers.pr-'${PR_NUMBER}'.tls=true\n      - traefik.http.services.pr-'${PR_NUMBER}'.loadbalancer.server.port=3000\n      - com.soccer.pr='${PR_NUMBER}'\n      - com.soccer.type=preview\n    networks:\n      - traefik\n    deploy:\n      replicas: 1\n      update_config:\n        parallelism: 1\n        delay: 10s\n      restart_policy:\n        condition: on-failure\n        delay: 5s\n        max_attempts: 3\nnetworks:\n  traefik:\n    external: true"
             }' \
             https://portainer.homelab.internal:9443/api/stacks?type=2&endpointId=1
           

@@ -154,7 +154,8 @@
       "Bash(-e NODE_ENV=production )",
       "Bash(-e NEXTAUTH_URL=\"http://localhost:3000\" )",
       "Bash(ghcr.io/joshshaloo/soccer/project-unify:f8a657b )",
-      "Bash(ghcr.io/joshshaloo/soccer/project-unify:f8a657b )"
+      "Bash(ghcr.io/joshshaloo/soccer/project-unify:f8a657b )",
+      "Bash(ghcr.io/joshshaloo/soccer/project-unify:23f2a7f )"
     ],
     "deny": []
   },

@@ -74,8 +74,9 @@ COPY --from=builder /app/node_modules/.pnpm/@prisma+debug@*/node_modules/@prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+get-platform@*/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
 COPY --from=builder /app/node_modules/.pnpm/@prisma+fetch-engine@*/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
 
-# Ensure script is executable
-RUN chmod +x start-prod.sh docker-entrypoint.sh
+# Ensure script is executable and set ownership
+RUN chmod +x start-prod.sh docker-entrypoint.sh && \
+    chown -R nextjs:nodejs .
 
 USER nextjs
 
@@ -84,8 +85,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js
-
-CMD ["./docker-entrypoint.sh"]
+CMD ["sh", "./docker-entrypoint.sh"]

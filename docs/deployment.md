@@ -38,6 +38,24 @@ The project uses a streamlined deployment pipeline that:
 - **Container Management**: Portainer
 - **GitHub Connection**: Tailscale VPN
 
+## Initial Setup (First Time Only)
+
+### Bootstrap Stacks in Portainer
+
+```bash
+# Create preview stack (first time only)
+make bootstrap-preview
+
+# Create production stack (first time only) 
+make bootstrap-prod
+```
+
+After bootstrap:
+1. Log into Portainer
+2. Navigate to the stack
+3. Update all environment variables with real values
+4. Remove any CHANGE-ME placeholders
+
 ## Deployment Flow
 
 ### Automatic Deployment
@@ -149,6 +167,23 @@ make deploy-preview TAG=previous-tag
 # or
 make deploy-prod TAG=previous-tag
 ```
+
+## Database Access
+
+PostgreSQL is exposed on specific ports for Tailnet access only:
+
+```bash
+# Connect to preview database (from Tailnet)
+psql -h 172.20.0.22 -p 5435 -U postgres soccer
+
+# Connect to production database (from Tailnet)
+psql -h 172.20.0.22 -p 5434 -U postgres soccer
+
+# Access MailHog UI (preview only)
+http://172.20.0.22:8125
+```
+
+These ports are NOT exposed via Cloudflare Tunnel for security.
 
 ## Monitoring
 

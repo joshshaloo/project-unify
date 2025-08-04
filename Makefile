@@ -213,6 +213,44 @@ endif
 # 🔧 Advanced (Hidden from main help)
 #
 
+## bootstrap-preview: Create initial preview stack in Portainer
+.PHONY: bootstrap-preview
+bootstrap-preview:
+	@echo "$(CYAN)🚀 Creating preview stack in Portainer...$(NC)"
+	@echo "This will create the initial stack. Use deploy-preview to update it."
+	@echo "Creating temporary JSON payload..."
+	@cat docker-stack.preview.yml | \
+		python3 -c "import sys, json; print(json.dumps({'name': 'soccer-preview', 'type': 2, 'endpointId': 1, 'stackFileContent': sys.stdin.read(), 'env': [{'name': 'IMAGE', 'value': '$(IMAGE_NAME):develop'}, {'name': 'POSTGRES_USER', 'value': 'postgres'}, {'name': 'POSTGRES_PASSWORD', 'value': 'preview-password-change-me'}, {'name': 'POSTGRES_DB', 'value': 'soccer'}, {'name': 'NEXTAUTH_SECRET', 'value': 'preview-secret-change-me'}, {'name': 'OPENAI_API_KEY', 'value': 'sk-your-key'}, {'name': 'N8N_USER', 'value': 'admin'}, {'name': 'N8N_PASSWORD', 'value': 'preview-n8n-password'}, {'name': 'N8N_DB_NAME', 'value': 'n8n'}]}))" > /tmp/stack-preview.json
+	@curl -X POST \
+		-H "X-API-Key: $${PORTAINER_API_KEY}" \
+		-H "Content-Type: application/json" \
+		-d @/tmp/stack-preview.json \
+		$${PORTAINER_HOST}/api/stacks?type=2&endpointId=1
+	@rm -f /tmp/stack-preview.json
+	@echo ""
+	@echo "$(GREEN)✓ Preview stack created!$(NC)"
+	@echo "$(YELLOW)Remember to update the environment variables in Portainer!$(NC)"
+
+## bootstrap-prod: Create initial production stack in Portainer
+.PHONY: bootstrap-prod
+bootstrap-prod:
+	@echo "$(RED)$(BOLD)⚠️  CREATE PRODUCTION STACK ⚠️$(NC)"
+	@echo -n "Type 'create-production' to confirm: "
+	@read confirm && [ "$$confirm" = "create-production" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
+	@echo "$(CYAN)🚀 Creating production stack in Portainer...$(NC)"
+	@echo "Creating temporary JSON payload..."
+	@cat docker-stack.prod.yml | \
+		python3 -c "import sys, json; print(json.dumps({'name': 'soccer-prod', 'type': 2, 'endpointId': 1, 'stackFileContent': sys.stdin.read(), 'env': [{'name': 'IMAGE', 'value': '$(IMAGE_NAME):latest'}, {'name': 'POSTGRES_USER', 'value': 'postgres'}, {'name': 'POSTGRES_PASSWORD', 'value': 'CHANGE-ME-SECURE-PASSWORD'}, {'name': 'POSTGRES_DB', 'value': 'soccer'}, {'name': 'APP_URL', 'value': 'https://app.clubomatic.ai'}, {'name': 'NEXTAUTH_SECRET', 'value': 'CHANGE-ME-SECURE-SECRET'}, {'name': 'SMTP_HOST', 'value': 'smtp.example.com'}, {'name': 'SMTP_PORT', 'value': '587'}, {'name': 'SMTP_USER', 'value': 'your-smtp-user'}, {'name': 'SMTP_PASSWORD', 'value': 'your-smtp-password'}, {'name': 'EMAIL_FROM', 'value': 'noreply@clubomatic.ai'}, {'name': 'OPENAI_API_KEY', 'value': 'sk-your-production-key'}, {'name': 'N8N_USER', 'value': 'admin'}, {'name': 'N8N_PASSWORD', 'value': 'CHANGE-ME-SECURE-PASSWORD'}, {'name': 'N8N_HOST', 'value': 'n8n.clubomatic.ai'}, {'name': 'N8N_WEBHOOK_URL', 'value': 'https://n8n.clubomatic.ai'}, {'name': 'N8N_DB_NAME', 'value': 'n8n'}, {'name': 'VERSION', 'value': 'latest'}]}))" > /tmp/stack-prod.json
+	@curl -X POST \
+		-H "X-API-Key: $${PORTAINER_API_KEY}" \
+		-H "Content-Type: application/json" \
+		-d @/tmp/stack-prod.json \
+		$${PORTAINER_HOST}/api/stacks?type=2&endpointId=1
+	@rm -f /tmp/stack-prod.json
+	@echo ""
+	@echo "$(GREEN)✓ Production stack created!$(NC)"
+	@echo "$(RED)$(BOLD)IMPORTANT: Update all CHANGE-ME values in Portainer immediately!$(NC)"
+
 ## status: Show running containers
 .PHONY: status
 status:

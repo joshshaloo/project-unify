@@ -41,6 +41,8 @@ services:
     volumes:
       - /mnt/truenas/docker_volumes/project-unity/prod/postgres:/var/lib/postgresql/data
       - /mnt/truenas/docker_volumes/project-unity/prod/backups:/backups
+    ports:
+      - "5434:5432"
     deploy:
       placement:
         constraints:

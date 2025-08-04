@@ -12,7 +12,7 @@ All services are deployed to a Docker Swarm cluster with specific port mappings 
 |---------|-----------|----------------|-------------|
 | App | 3010 | 3000 | Production Next.js application |
 | n8n | 5680 | 5678 | Production n8n workflow automation |
-| PostgreSQL | - | 5432 | Internal only (no host port) |
+| PostgreSQL | 5434 | 5432 | Production database (Tailnet access only) |
 | Redis | - | 6379 | Internal only (no host port) |
 
 ### Preview Environment
@@ -21,8 +21,8 @@ All services are deployed to a Docker Swarm cluster with specific port mappings 
 |---------|-----------|----------------|-------------|
 | App | 3011 | 3000 | Preview Next.js application (used for all PRs) |
 | n8n | 5681 | 5678 | Preview n8n workflow automation |
-| MailHog | 8125 | 8025 | Email testing interface (Web UI) |
-| PostgreSQL | - | 5432 | Internal only (no host port) |
+| MailHog | 8125 | 8025 | Email testing interface (Tailnet access only) |
+| PostgreSQL | 5435 | 5432 | Preview database (Tailnet access only) |
 | Redis | - | 6379 | Internal only (no host port) |
 
 ## Access URLs via Cloudflare Tunnel

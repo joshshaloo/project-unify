@@ -1,4 +1,4 @@
-# TECH-002: Initialize database and schema
+# TECH-002: Database schema and PostgreSQL setup
 
 **Type:** Technical Foundation  
 **Points:** 3  
@@ -6,46 +6,62 @@
 **Dependencies:** TECH-001  
 
 ## Description
-Set up Supabase project and initialize the database schema with Prisma ORM. Create the foundational tables for multi-tenant architecture with proper RLS policies.
+Configure self-hosted PostgreSQL database with Prisma ORM and implement the complete data schema including NextAuth integration and multi-tenant architecture.
 
 ## Acceptance Criteria
-- [ ] Supabase project created and configured
-- [ ] Prisma schema defined with all core models
-- [ ] Database migrations created and applied
-- [ ] Row Level Security (RLS) policies implemented
+- [ ] PostgreSQL running in Docker containers (dev/preview/prod)
+- [ ] Prisma schema matches current implementation
+- [ ] NextAuth database adapter configured
+- [ ] Database migrations created and tested
 - [ ] Seed data script for development
-- [ ] Database connection configured in API
-- [ ] Prisma Client generation working
-- [ ] Basic CRUD operations tested
+- [ ] Multi-tenant data isolation implemented
+- [ ] Magic links table and cleanup implemented
+- [ ] Connection pooling configured
+- [ ] Backup strategy documented
 
 ## Technical Details
 
-### Core Database Models
+### Current Architecture
+- **Database**: Self-hosted PostgreSQL 15+ in Docker containers
+- **ORM**: Prisma 5.0+ with database sessions
+- **Auth Tables**: NextAuth v5 adapter tables
+- **Environment Isolation**: Separate databases per environment
+- **Connections**: Direct connection (no pooling for MVP)
+
+### Core Database Models (Current Implementation)
 ```prisma
+// From apps/web/prisma/schema.prisma (already implemented)
 model Club {
-  id            String   @id @default(cuid())
-  name          String
-  settings      Json     @default("{}")
-  subscription  String   @default("trial")
-  createdAt     DateTime @default(now())
-  
-  teams         Team[]
-  users         UserClubRole[]
-  curriculum    Curriculum?
+  id           String    @id @default(cuid())
+  name         String
+  logoUrl      String?
+  primaryColor String?
+  settings     Json      @default("{}")
+  subscription String    @default("trial")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  userClubs   UserClub[]
+  teams       Team[]
+  drills      Drill[]
+  sessions    Session[]
+  templates   SessionTemplate[]
+  invitations Invitation[]
 }
 
-model UserClubRole {
-  id            String   @id @default(cuid())
-  userId        String
-  clubId        String
-  role          Role
-  isPrimary     Boolean  @default(false)
-  permissions   Json
-  
-  club          Club     @relation(fields: [clubId], references: [id])
-  user          User     @relation(fields: [userId], references: [id])
-  
-  @@unique([userId, clubId, role])
+model UserClub {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  role      String   // admin, head_coach, assistant_coach, parent
+  status    String   @default("active") // active, inactive, invited
+  joinedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@unique([userId, clubId])
+  @@map("user_clubs")
 }
 
 model Team {

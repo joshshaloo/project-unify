@@ -11,7 +11,7 @@
 | ORM | Prisma | 5.0+ | Database toolkit | Type-safe queries, migrations |
 | Cache | Redis | 7+ | In-memory cache | Self-hosted in Docker container |
 | File Storage | Local Volume | N/A | Media storage | Docker volumes, S3-compatible later |
-| Authentication | Magic Links | Custom | Passwordless auth | Simple email-based authentication |
+| Authentication | NextAuth | 5.0+ | Passwordless auth | Industry-standard with email provider |
 | AI Orchestration | n8n | Latest | Visual workflow automation | Self-hosted in Docker container |
 | AI | OpenAI API | Latest | GPT-4 access | Called via n8n workflows |
 | Email | MailHog (dev) / SMTP | Latest | Email service | MailHog for dev/preview, SMTP for prod |

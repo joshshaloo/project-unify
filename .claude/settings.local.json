@@ -103,7 +103,8 @@
       "Bash(DATABASE_URL=postgresql://postgres:localpassword@localhost:5433/soccer pnpm db:push)",
       "Bash(timeout 60 pnpm test:e2e --grep \"should maintain session across browser refresh\" --reporter=list --project=chromium)",
       "Bash(sed:*)",
-      "Bash(pntml playwright test:*)"
+      "Bash(pntml playwright test:*)",
+      "Bash(md-tree:*)"
     ],
     "deny": []
   },

@@ -62,7 +62,11 @@ export class N8NClient {
   private readonly timeout: number;
 
   constructor() {
-    this.baseUrl = process.env.N8N_WEBHOOK_URL || 'https://n8n.shaloo.io';
+    const webhookUrl = process.env.N8N_WEBHOOK_URL;
+    if (!webhookUrl) {
+      throw new Error('N8N_WEBHOOK_URL environment variable is required');
+    }
+    this.baseUrl = webhookUrl;
     this.timeout = 30000; // 30 seconds
   }
 

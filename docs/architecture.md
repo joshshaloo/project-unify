@@ -16,6 +16,7 @@ N/A - Greenfield project
 | 2025-08-02 | 1.1 | Simplified to Next.js full-stack for MVP | Winston, Architect |
 | 2025-08-02 | 1.2 | Added n8n-based AI agent orchestration | Winston, Architect |
 | 2025-08-03 | 2.0 | Major pivot to home lab self-hosting with Docker Swarm | Winston, Architect |
+| 2025-08-04 | 2.1 | Updated authentication from magic links to NextAuth | Winston, Architect |
 
 ## High Level Architecture
 
@@ -143,7 +144,7 @@ graph TB
 - **Self-Hosted MVP:** Complete control over infrastructure during validation phase - _Rationale:_ Zero cloud costs until product-market fit is proven
 - **Docker Swarm Orchestration:** Simple container orchestration - _Rationale:_ Easier than Kubernetes for small deployments, built into Docker
 - **Multi-Stage Docker Builds:** Testing integrated into build process - _Rationale:_ Catch issues before deployment, ensures quality
-- **Magic Link Authentication:** Email-based passwordless auth - _Rationale:_ Simpler than OAuth for MVP, no external auth dependencies
+- **NextAuth Email Authentication:** Email-based passwordless auth via NextAuth - _Rationale:_ Industry-standard authentication with email provider, automatic session management
 - **PostgreSQL for All Environments:** Consistent database across dev/preview/prod - _Rationale:_ Eliminates environment-specific bugs, simple backup strategy
 - **Cloudflare Zero Trust:** Secure public access to home lab - _Rationale:_ Enterprise-grade security without complexity
 - **GitOps Deployment:** GitHub Actions drives all deployments - _Rationale:_ Version-controlled, auditable, automated deployments
@@ -162,7 +163,7 @@ graph TB
 | ORM | Prisma | 5.0+ | Database toolkit | Type-safe queries, migrations |
 | Cache | Redis | 7+ | In-memory cache | Self-hosted in Docker container |
 | File Storage | Local Volume | N/A | Media storage | Docker volumes, S3-compatible later |
-| Authentication | Magic Links | Custom | Passwordless auth | Simple email-based authentication |
+| Authentication | NextAuth | 5.0+ | Passwordless auth | Industry-standard with email provider |
 | AI Orchestration | n8n | Latest | Visual workflow automation | Self-hosted in Docker container |
 | AI | OpenAI API | Latest | GPT-4 access | Called via n8n workflows |
 | Email | MailHog (dev) / SMTP | Latest | Email service | MailHog for dev/preview, SMTP for prod |
@@ -240,20 +241,48 @@ gunzip < /mnt/truenas/docker_volumes/project-unity/prod/backups/${POSTGRES_DB}_2
 - Query monitoring with pg_stat_statements
 - Regular VACUUM and ANALYZE
 
-### Magic Link Schema Addition
+### NextAuth Schema Tables
+
+NextAuth automatically creates and manages the following authentication tables through the Prisma adapter:
 
 ```prisma
-model MagicLink {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
+// NextAuth required tables (managed by @auth/prisma-adapter)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  @@index([token])
-  @@index([email])
-  @@map("magic_links")
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 ```
 
@@ -318,18 +347,19 @@ export { handler as GET, handler as POST };
 
 **Technology Stack:** Next.js 14+, React 18+, TypeScript, tRPC, Docker
 
-### Authentication (Magic Links)
+### Authentication (NextAuth)
 
-**Responsibility:** Passwordless authentication via email
+**Responsibility:** Passwordless authentication via email using NextAuth
 **Key Features:**
-- Time-limited magic link tokens
-- JWT session management
-- Secure token generation and storage
-- Email-based user verification
-- Simple user onboarding flow
-- Cookie-based session persistence
+- Email provider for passwordless authentication
+- Database session management via Prisma adapter
+- Secure token generation and verification
+- Email-based user verification (magic links)
+- Automatic user account creation
+- Cookie-based session persistence with CSRF protection
+- Built-in security features (rate limiting, token rotation)
 
-**Technology Stack:** Custom implementation with JWT, nodemailer, PostgreSQL
+**Technology Stack:** NextAuth 5.0+ with Nodemailer provider, Prisma adapter, PostgreSQL
 
 ### Database Layer
 
@@ -717,8 +747,10 @@ The containerized architecture ensures smooth migration at each phase.
 - **Network Isolation:** Separate networks for services
 
 ### Application Security
-- **Magic Link Auth:** No passwords to compromise
-- **JWT Sessions:** Secure, stateless authentication
+- **NextAuth Email Authentication:** No passwords to compromise, industry-standard security
+- **Database Sessions:** Secure, server-side session management with automatic cleanup
+- **CSRF Protection:** Built-in CSRF protection via NextAuth
+- **Token Security:** Cryptographically secure tokens with automatic rotation
 - **HTTPS Only:** Enforced via Cloudflare
 - **Environment Variables:** Injected at runtime, not in images
 - **Rate Limiting:** Redis-based request throttling

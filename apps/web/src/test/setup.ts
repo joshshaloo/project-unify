@@ -89,13 +89,32 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(() => new Map()),
 }))
 
+// Mock React DOM hooks for server actions
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-dom')>('react-dom')
+  return {
+    ...actual,
+    useFormState: vi.fn((action, initialState) => {
+      const [state, setState] = React.useState(initialState)
+      const formAction = async (formData: FormData) => {
+        const result = await action(state, formData)
+        setState(result)
+        return result
+      }
+      return [state, formAction]
+    }),
+    useFormStatus: vi.fn(() => ({ pending: false })),
+  }
+})
+
 // Mock environment variables
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
+process.env.DIRECT_URL = 'postgresql://test:test@localhost:5432/test'
 process.env.NEXTAUTH_SECRET = 'test-secret'
 process.env.NEXTAUTH_URL = 'http://localhost:3000'
+process.env.EMAIL_SERVER_HOST = 'localhost'
+process.env.EMAIL_SERVER_PORT = '1025'
+process.env.EMAIL_FROM = 'test@example.com'
 
 // Global test configuration
 global.ResizeObserver = vi.fn().mockImplementation(() => ({
@@ -147,6 +166,13 @@ const createMockPrisma = () => ({
     create: vi.fn(),
     findUnique: vi.fn(),
   },
+  magicLink: {
+    create: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+  },
   $transaction: vi.fn((fn) => fn({
     user: {
       create: vi.fn(),
@@ -164,36 +190,30 @@ const createMockPrisma = () => ({
       create: vi.fn(),
     },
   })),
+  $queryRaw: vi.fn(),
 })
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: createMockPrisma(),
+vi.mock('@/lib/prisma', () => {
+  const mockPrisma = createMockPrisma()
+  return {
+    prisma: mockPrisma,
+    db: mockPrisma,
+  }
+})
+
+// Mock JWT and email services
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    sign: vi.fn().mockReturnValue('mock-jwt-token'),
+    verify: vi.fn().mockReturnValue({ userId: 'test-user-id', email: 'test@example.com' }),
+  },
 }))
 
-// Mock Supabase server client - this will be overridden by test-specific mocks
-const createMockSupabaseClient = () => ({
-  auth: {
-    signInWithPassword: vi.fn().mockResolvedValue({ data: null, error: null }),
-    signUp: vi.fn().mockResolvedValue({ data: null, error: null }),
-    signOut: vi.fn().mockResolvedValue({ error: null }),
-    getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
-    getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
-    onAuthStateChange: vi.fn(() => ({
-      data: { subscription: { unsubscribe: vi.fn() } },
-    })),
-  },
-  from: vi.fn(() => ({
-    select: vi.fn().mockReturnThis(),
-    insert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    delete: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn(),
-    maybeSingle: vi.fn(),
-  })),
-})
+vi.mock('@/lib/email', () => ({
+  sendEmail: vi.fn().mockResolvedValue({ success: true }),
+}))
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn().mockResolvedValue(createMockSupabaseClient()),
+vi.mock('@/lib/email/send', () => ({
+  sendEmail: vi.fn().mockResolvedValue({ success: true }),
 }))
 

@@ -3,12 +3,13 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/test/utils/test-utils'
 import { SignupForm } from './signup-form'
-// import * as authActions from '@/lib/auth/actions' // imported but not used directly
 
-// Mock the auth actions
-vi.mock('@/lib/auth/actions', () => ({
-  signup: vi.fn(),
-}))
+// Mock action for the form
+const mockAction = vi.fn()
+const defaultAction = async (prevState: any, formData: FormData) => {
+  mockAction(prevState, formData)
+  return { success: true }
+}
 
 // Mock Next.js router
 const mockPush = vi.fn()
@@ -33,21 +34,19 @@ describe('SignupForm', () => {
   })
 
   it('should render signup form with all required fields', () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     expect(screen.getByLabelText(/full name/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/i agree to the terms and conditions/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument()
   })
 
   it('should have correct input types and attributes', () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
 
     expect(nameInput).toHaveAttribute('type', 'text')
@@ -60,40 +59,25 @@ describe('SignupForm', () => {
     expect(emailInput).toHaveAttribute('required')
     expect(emailInput).toHaveAttribute('autoComplete', 'email')
 
-    expect(passwordInput).toHaveAttribute('type', 'password')
-    expect(passwordInput).toHaveAttribute('name', 'password')
-    expect(passwordInput).toHaveAttribute('required')
-    expect(passwordInput).toHaveAttribute('autoComplete', 'new-password')
-
     expect(agreeCheckbox).toHaveAttribute('type', 'checkbox')
     expect(agreeCheckbox).toHaveAttribute('required')
   })
 
-  it('should display password requirements', () => {
-    renderWithProviders(<SignupForm />)
-
-    expect(screen.getByText(/must be at least 8 characters/i)).toBeInTheDocument()
-  })
-
   it('should allow user to fill out form with valid data', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
 
     // Test that user can fill out the form
     await user.type(nameInput, 'John Doe')
-    await user.type(emailInput, 'test@example.com')
-    await user.type(passwordInput, 'password123')
+    await user.type(emailInput, 'john@example.com')
     await user.click(agreeCheckbox)
 
-    // Verify form is filled correctly
     expect(nameInput).toHaveValue('John Doe')
-    expect(emailInput).toHaveValue('test@example.com')
-    expect(passwordInput).toHaveValue('password123')
+    expect(emailInput).toHaveValue('john@example.com')
     expect(agreeCheckbox).toBeChecked()
     
     // Submit button should be enabled with valid data
@@ -101,21 +85,18 @@ describe('SignupForm', () => {
   })
 
   it('should handle component state changes properly', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
-    // const nameInput = screen.getByLabelText(/full name/i)
-    // const emailInput = screen.getByLabelText(/email address/i)
-    // const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
-    // const submitButton = screen.getByRole('button', { name: /create account/i })
 
     // Initially, the checkbox should not be checked
     expect(agreeCheckbox).not.toBeChecked()
     
-    // User can toggle the checkbox
+    // Check the checkbox
     await user.click(agreeCheckbox)
     expect(agreeCheckbox).toBeChecked()
     
+    // Uncheck the checkbox
     await user.click(agreeCheckbox)
     expect(agreeCheckbox).not.toBeChecked()
     
@@ -124,65 +105,52 @@ describe('SignupForm', () => {
   })
 
   it('should render form fields with correct accessibility attributes', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
 
     // Test accessibility attributes
     expect(nameInput).toHaveAccessibleName()
     expect(emailInput).toHaveAccessibleName()
-    expect(passwordInput).toHaveAccessibleName()
     expect(agreeCheckbox).toHaveAccessibleName()
     expect(submitButton).toHaveAccessibleName()
     
     // Test that inputs are properly associated with labels
     expect(nameInput.getAttribute('id')).toBe('name')
     expect(emailInput.getAttribute('id')).toBe('email')
-    expect(passwordInput.getAttribute('id')).toBe('password')
     expect(agreeCheckbox.getAttribute('id')).toBe('agree')
   })
 
   it('should allow clearing and re-entering form data', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
 
     // Fill out form
     await user.type(nameInput, 'John Doe')
-    await user.type(emailInput, 'original@example.com')
-    await user.type(passwordInput, 'password123')
+    await user.type(emailInput, 'john@example.com')
     await user.click(agreeCheckbox)
-
-    // Verify initial values
-    expect(nameInput).toHaveValue('John Doe')
-    expect(emailInput).toHaveValue('original@example.com')
-    expect(passwordInput).toHaveValue('password123')
-    expect(agreeCheckbox).toBeChecked()
 
     // Clear and re-enter email
     await user.clear(emailInput)
     await user.type(emailInput, 'new@example.com')
-    
+
     expect(emailInput).toHaveValue('new@example.com')
     // Other fields should remain unchanged
     expect(nameInput).toHaveValue('John Doe')
-    expect(passwordInput).toHaveValue('password123')
     expect(agreeCheckbox).toBeChecked()
   })
 
   it('should require all fields to be filled', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
 
@@ -191,22 +159,19 @@ describe('SignupForm', () => {
 
     expect(nameInput).toBeInvalid()
     expect(emailInput).toBeInvalid()
-    expect(passwordInput).toBeInvalid()
     expect(agreeCheckbox).toBeInvalid()
   })
 
   it('should validate email format', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
 
     await user.type(nameInput, 'John Doe')
     await user.type(emailInput, 'invalid-email')
-    await user.type(passwordInput, 'password123')
     await user.click(agreeCheckbox)
     await user.click(submitButton)
 
@@ -214,17 +179,15 @@ describe('SignupForm', () => {
   })
 
   it('should require terms and conditions agreement', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
 
     await user.type(nameInput, 'John Doe')
-    await user.type(emailInput, 'test@example.com')
-    await user.type(passwordInput, 'password123')
+    await user.type(emailInput, 'john@example.com')
     // Don't check the agreement checkbox
     await user.click(submitButton)
 
@@ -232,33 +195,32 @@ describe('SignupForm', () => {
   })
 
   it('should respond to keyboard interaction correctly', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
 
     // Test keyboard navigation and input
     await user.type(nameInput, 'John Doe')
+    expect(nameInput).toHaveValue('John Doe')
+    
+    // Tab to email field
     await user.tab()
     expect(emailInput).toHaveFocus()
+    await user.type(emailInput, 'john@example.com')
     
-    await user.type(emailInput, 'test@example.com')
-    await user.tab()
-    expect(passwordInput).toHaveFocus()
-    
-    await user.type(passwordInput, 'password123')
-    await user.tab()
-    expect(agreeCheckbox).toHaveFocus()
-    
-    // Test space key for checkbox
-    await user.keyboard(' ')
+    // Focus the checkbox directly and test interaction
+    await user.click(agreeCheckbox)
     expect(agreeCheckbox).toBeChecked()
+    
+    // Test unchecking with keyboard
+    await user.keyboard(' ')
+    expect(agreeCheckbox).not.toBeChecked()
   })
 
   it('should have form elements with proper structure', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const form = screen.getByRole('button', { name: /create account/i }).closest('form')
     expect(form).toBeInTheDocument()
@@ -269,54 +231,33 @@ describe('SignupForm', () => {
     // Test that all required form elements are present
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
     
     expect(nameInput).toBeInTheDocument()
     expect(emailInput).toBeInTheDocument()
-    expect(passwordInput).toBeInTheDocument()
     expect(agreeCheckbox).toBeInTheDocument()
     expect(submitButton).toBeInTheDocument()
   })
 
-  it('should render password requirements hint', async () => {
-    renderWithProviders(<SignupForm />)
-
-    // Check for password requirements text
-    expect(screen.getByText(/must be at least 8 characters/i)).toBeInTheDocument()
-    
-    // Test password field characteristics
-    const passwordInput = screen.getByLabelText(/password/i)
-    expect(passwordInput).toHaveAttribute('type', 'password')
-    expect(passwordInput).toHaveAttribute('autoComplete', 'new-password')
-    expect(passwordInput).toHaveAttribute('required')
-    
-    // Test that user can type in password field
-    await user.type(passwordInput, 'secretpassword')
-    expect(passwordInput).toHaveValue('secretpassword')
-  })
-
   it('should have proper accessibility attributes', () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const form = screen.getByRole('button', { name: /create account/i }).closest('form')!
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
-    const passwordInput = screen.getByLabelText(/password/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
     const submitButton = screen.getByRole('button', { name: /create account/i })
 
-    expect(form).toBeInTheDocument()
+    // Test accessibility
     expect(nameInput).toHaveAccessibleName()
     expect(emailInput).toHaveAccessibleName()
-    expect(passwordInput).toHaveAccessibleName()
     expect(agreeCheckbox).toHaveAccessibleName()
     expect(submitButton).toHaveAccessibleName()
   })
 
   it('should have terms and conditions link', () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const termsLink = screen.getByRole('link', { name: /terms and conditions/i })
     expect(termsLink).toBeInTheDocument()
@@ -324,7 +265,7 @@ describe('SignupForm', () => {
   })
 
   it('should toggle agreement checkbox', async () => {
-    renderWithProviders(<SignupForm />)
+    renderWithProviders(<SignupForm action={defaultAction} />)
 
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)
 

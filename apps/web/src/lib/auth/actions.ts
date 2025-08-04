@@ -1,26 +1,27 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { generateMagicLink, verifyMagicLink, createSession } from './magic-link'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 // Input validation schemas
-const loginSchema = z.object({
+const signInSchema = z.object({
   email: z.string().email('Invalid email address').max(255),
-  password: z.string().min(1, 'Password is required').max(255),
 })
 
-const signupSchema = z.object({
+const registerSchema = z.object({
   email: z.string().email('Invalid email address').max(255),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(255),
   name: z.string().max(255).optional(),
-  invite: z.string().max(255).optional(),
+  clubName: z.string().max(255).optional(),
 })
 
 // Rate limiting (simple in-memory store - in production use Redis)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+// Use globalThis to persist across server action executions
+const rateLimitStore = (globalThis as any).__rateLimitStore || new Map<string, { count: number; resetTime: number }>()
+if (!(globalThis as any).__rateLimitStore) {
+  (globalThis as any).__rateLimitStore = rateLimitStore
+}
 
 function checkRateLimit(key: string, limit: number = 5, windowMs: number = 15 * 60 * 1000): boolean {
   const now = Date.now()
@@ -28,202 +29,162 @@ function checkRateLimit(key: string, limit: number = 5, windowMs: number = 15 * 
   
   if (!record || record.resetTime < now) {
     rateLimitStore.set(key, { count: 1, resetTime: now + windowMs })
+    console.log(`Rate limit: New record for ${key}, count: 1`)
     return true
   }
   
   if (record.count >= limit) {
+    console.log(`Rate limit: Exceeded for ${key}, count: ${record.count}`)
     return false
   }
   
   record.count++
+  console.log(`Rate limit: Updated for ${key}, count: ${record.count}`)
   return true
 }
 
-export async function login(formData: FormData) {
+export async function signIn(prevState: any, formData: FormData) {
   try {
-    // Extract and validate input
     const rawData = {
       email: formData.get('email'),
-      password: formData.get('password'),
     }
 
-    const validatedData = loginSchema.parse(rawData)
+    const validatedData = signInSchema.parse(rawData)
     
-    // Rate limiting by email
-    if (!checkRateLimit(`login:${validatedData.email}`, 5)) {
+    // Rate limiting by email (lower limit for testing)
+    if (!checkRateLimit(`signin:${validatedData.email}`, 3)) {
       return { error: 'Too many login attempts. Please try again later.' }
     }
 
-    const supabase = await createClient()
-    const { error } = await supabase.auth.signInWithPassword(validatedData)
-
-    if (error) {
-      return { error: 'Invalid email or password' } // Generic error message for security
-    }
-
-    revalidatePath('/', 'layout')
-    redirect('/dashboard')
+    await generateMagicLink(validatedData.email)
+    return { success: true, message: 'Check your email for a magic link to sign in!' }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0]?.message || 'Invalid input' }
     }
-    // Re-throw redirect errors - these are expected
-    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-      throw error
-    }
-    console.error('Login error:', error)
-    return { error: 'An unexpected error occurred' }
+    console.error('Sign in error:', error)
+    return { error: 'Failed to send magic link' }
   }
 }
 
-export async function signup(formData: FormData) {
+export async function registerUser(prevState: any, formData: FormData) {
   try {
-    // Extract and validate input
     const rawData = {
       email: formData.get('email'),
-      password: formData.get('password'),
       name: formData.get('name') || undefined,
-      invite: formData.get('invite') || undefined,
+      clubName: formData.get('clubName') || undefined,
     }
 
-    const validatedData = signupSchema.parse(rawData)
+    const validatedData = registerSchema.parse(rawData)
     
     // Rate limiting by email
-    if (!checkRateLimit(`signup:${validatedData.email}`, 3)) {
-      return { error: 'Too many signup attempts. Please try again later.' }
+    if (!checkRateLimit(`register:${validatedData.email}`, 3)) {
+      return { error: 'Too many registration attempts. Please try again later.' }
     }
 
-    const supabase = await createClient()
-    let invitation = null
-
-    // If there's an invite token, validate it
-    if (validatedData.invite) {
-      invitation = await prisma.invitation.findUnique({
-        where: { token: validatedData.invite },
-        include: { club: true }
+    // Store registration intent
+    if (validatedData.clubName) {
+      await storeRegistrationIntent(validatedData.email, {
+        name: validatedData.name,
+        clubName: validatedData.clubName,
       })
-
-      if (!invitation) {
-        return { error: 'Invalid invitation token' }
-      }
-
-      if (invitation.usedAt) {
-        return { error: 'This invitation has already been used' }
-      }
-
-      if (new Date() > invitation.expiresAt) {
-        return { error: 'This invitation has expired' }
-      }
-
-      // Verify email matches if invitation is email-specific
-      if (invitation.email && invitation.email !== validatedData.email) {
-        return { error: 'This invitation is for a different email address' }
-      }
     }
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: validatedData.email,
-      password: validatedData.password,
-      options: {
-        data: {
-          name: validatedData.name || '',
-        }
-      }
-    })
-
-    if (authError) {
-      return { error: 'Failed to create account. Please try again.' } // Generic error for security
-    }
-
-    if (authData.user) {
-      // Create user in our database with transaction
-      try {
-        await prisma.$transaction(async (tx) => {
-          // Create user
-          const user = await tx.user.create({
-            data: {
-              email: authData.user!.email!,
-              supabaseId: authData.user!.id,
-              name: validatedData.name || null,
-            }
-          })
-
-          // If there's an invitation, create club association
-          if (invitation) {
-            await tx.userClub.create({
-              data: {
-                userId: user.id,
-                clubId: invitation.clubId,
-                role: invitation.role,
-                status: 'active'
-              }
-            })
-
-            // Mark invitation as used
-            await tx.invitation.update({
-              where: { id: invitation.id },
-              data: {
-                usedAt: new Date(),
-                usedByEmail: validatedData.email
-              }
-            })
-          }
-        })
-      } catch (dbError) {
-        // Log the error but continue - Supabase user was created successfully
-        console.error('Database error during user creation:', dbError)
-      }
-    }
-
-    revalidatePath('/', 'layout')
-    redirect('/auth/verify-email')
+    // Send magic link
+    await generateMagicLink(validatedData.email)
+    
+    return { success: true, message: 'Check your email to complete registration!' }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors[0]?.message || 'Invalid input' }
     }
-    // Re-throw redirect errors - these are expected
+    console.error('Registration error:', error)
+    return { error: 'Failed to send magic link' }
+  }
+}
+
+export async function verifyToken(token: string) {
+  try {
+    const result = await verifyMagicLink(token)
+    
+    if (!result) {
+      return { error: 'Invalid or expired link' }
+    }
+    
+    // Check for registration intent
+    const intent = await getRegistrationIntent(result.email)
+    if (intent) {
+      // Complete registration
+      await prisma.$transaction(async (tx) => {
+        // Update user name if provided
+        if (intent.name) {
+          await tx.user.update({
+            where: { id: result.userId },
+            data: { name: intent.name },
+          })
+        }
+        
+        // Create club and association
+        if (intent.clubName) {
+          const club = await tx.club.create({
+            data: {
+              name: intent.clubName,
+            },
+          })
+          
+          await tx.userClub.create({
+            data: {
+              userId: result.userId,
+              clubId: club.id,
+              role: 'admin',
+            },
+          })
+        }
+        
+        // Clear registration intent
+        await clearRegistrationIntent(result.email)
+      })
+    }
+    
+    // Create session
+    await createSession(result.userId, result.email)
+    
+    redirect('/dashboard')
+  } catch (error) {
+    // Re-throw redirect errors
     if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
       throw error
     }
-    console.error('Signup error:', error)
-    return { error: 'An unexpected error occurred' }
+    console.error('Token verification error:', error)
+    return { error: 'Invalid or expired link' }
   }
 }
 
-export async function signOut() {
-  try {
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-  } catch (error) {
-    // Continue to sign out even if Supabase fails
-    console.error('Sign out error:', error)
-  }
-  revalidatePath('/', 'layout')
-  redirect('/')
+// Server-only functions moved to auth/server.ts to avoid action registration conflicts
+
+// Registration intent helpers (store in Redis in production)
+const registrationIntents = new Map<string, any>()
+
+async function storeRegistrationIntent(email: string, data: any) {
+  registrationIntents.set(email, {
+    ...data,
+    timestamp: Date.now(),
+  })
 }
 
-export async function getUser() {
-  try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
-    
-    if (error || !user) return null
-
-    // Get full user data from our database
-    const dbUser = await prisma.user.findUnique({
-      where: { supabaseId: user.id },
-      include: {
-        clubs: {
-          include: {
-            club: true
-          }
-        }
-      }
-    })
-
-    return dbUser
-  } catch (error) {
-    console.error('Get user error:', error)
+async function getRegistrationIntent(email: string) {
+  const intent = registrationIntents.get(email)
+  if (!intent) return null
+  
+  // Check if intent is expired (1 hour)
+  if (Date.now() - intent.timestamp > 60 * 60 * 1000) {
+    registrationIntents.delete(email)
     return null
   }
+  
+  return intent
+}
+
+async function clearRegistrationIntent(email: string) {
+  registrationIntents.delete(email)
 }

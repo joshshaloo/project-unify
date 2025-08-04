@@ -6,18 +6,18 @@
 **Dependencies:** TECH-002  
 
 ## Description
-Implement the drill library system that stores club-specific drills with YouTube video links. This library feeds into the AI session generation and allows coaches to build their own sessions.
+Implement the drill library system that stores club-specific drills. For MVP, support text-based drills with video URL storage for future integration. This library feeds into the AI session generation and allows coaches to build their own sessions.
 
 ## Acceptance Criteria
 - [ ] Drill data model implemented
 - [ ] CRUD operations for drills
-- [ ] YouTube video validation
+- [ ] Video URL storage (validation deferred)
 - [ ] Drill categorization (skill, age, etc.)
 - [ ] Search and filter functionality
-- [ ] Drill preview with video thumbnail
-- [ ] Import/export capability
-- [ ] Default drill library seeded
-- [ ] Integration with AI planner
+- [ ] Basic drill list view
+- [ ] Import capability from JSON
+- [ ] Default drill library seeded (50+ drills)
+- [ ] API ready for AI integration
 
 ## Technical Details
 
@@ -63,76 +63,47 @@ model Drill {
 }
 ```
 
-### YouTube Integration
+### Simplified Video URL Storage (MVP)
 ```typescript
-// apps/api/src/services/youtube.service.ts
-export class YouTubeService {
-  private youtube: youtube_v3.Youtube;
+// apps/web/src/lib/utils/video.ts
+export function extractVideoId(url: string): string | null {
+  if (!url) return null;
   
-  constructor() {
-    this.youtube = google.youtube({
-      version: 'v3',
-      auth: process.env.YOUTUBE_API_KEY
-    });
-  }
+  // Basic YouTube URL patterns - no API validation for MVP
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/
+  ];
   
-  async validateAndExtract(url: string): Promise<VideoMetadata> {
-    const videoId = this.extractVideoId(url);
-    if (!videoId) throw new Error('Invalid YouTube URL');
-    
-    const response = await this.youtube.videos.list({
-      part: ['snippet', 'contentDetails'],
-      id: [videoId]
-    });
-    
-    const video = response.data.items?.[0];
-    if (!video) throw new Error('Video not found');
-    
-    return {
-      videoId,
-      title: video.snippet.title,
-      thumbnail: video.snippet.thumbnails.high.url,
-      duration: this.parseDuration(video.contentDetails.duration),
-      isValid: true
-    };
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
   }
-  
-  private extractVideoId(url: string): string | null {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-      /youtube\.com\/embed\/([^&\n?#]+)/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
-    }
-    return null;
-  }
+  return null;
+}
+
+export function getYouTubeThumbnail(videoId: string): string {
+  // YouTube provides predictable thumbnail URLs
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 ```
 
-### Drill Service
+### Drill Service (Simplified for MVP)
 ```typescript
-// apps/api/src/services/drill.service.ts
+// apps/web/src/lib/services/drill.service.ts
 export class DrillService {
-  constructor(
-    private db: PrismaClient,
-    private youtube: YouTubeService
-  ) {}
+  constructor(private db: PrismaClient) {}
   
-  async create(input: CreateDrillInput, userId: string): Promise<Drill> {
-    // Validate video if provided
-    let videoMetadata = null;
-    if (input.videoUrl) {
-      videoMetadata = await this.youtube.validateAndExtract(input.videoUrl);
-    }
+  async create(input: CreateDrillInput, userId: string, clubId: string): Promise<Drill> {
+    // Extract video ID if URL provided (no validation for MVP)
+    const videoId = input.videoUrl ? extractVideoId(input.videoUrl) : null;
     
     return this.db.drill.create({
       data: {
         ...input,
-        videoId: videoMetadata?.videoId,
-        thumbnail: videoMetadata?.thumbnail,
+        clubId,
+        videoId,
+        thumbnail: videoId ? getYouTubeThumbnail(videoId) : null,
         createdBy: userId
       }
     });
@@ -203,14 +174,13 @@ export const drillRouter = router({
 
 ## Implementation Steps
 1. Create drill database schema
-2. Set up YouTube API integration
-3. Build drill CRUD service
-4. Implement search/filter logic
-5. Create drill management UI
-6. Add video preview component
-7. Build import/export features
-8. Seed default drill library
-9. Integrate with session planner
+2. Build drill CRUD service
+3. Implement search/filter logic
+4. Create basic drill list UI
+5. Add drill detail view
+6. Build JSON import feature
+7. Seed default drill library
+8. Create API endpoints for AI
 
 ## Default Drill Library
 Include 50+ common drills covering:
@@ -221,14 +191,48 @@ Include 50+ common drills covering:
 - Warm-up and cool-down activities
 
 ## Testing
-- Video URL validation
-- Search performance with large dataset
+- Basic URL pattern matching works
+- Search performance with 50+ drills
 - Filter combinations work correctly
-- Import handles duplicates
-- Permissions enforced properly
+- Import handles duplicates gracefully
+- Drill creation saves video URLs
+
+## UI Components (Simplified)
+```typescript
+// Drill list view - text focus for MVP
+export function DrillList({ drills }: { drills: Drill[] }) {
+  return (
+    <div className="space-y-4">
+      {drills.map(drill => (
+        <Card key={drill.id}>
+          <CardHeader>
+            <CardTitle>{drill.name}</CardTitle>
+            <Badge>{drill.category}</Badge>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              {drill.description}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Badge variant="outline">{drill.ageGroups.join(', ')}</Badge>
+              <Badge variant="outline">{drill.duration} min</Badge>
+              {drill.videoUrl && (
+                <Badge variant="outline">
+                  <Video className="w-3 h-3 mr-1" />
+                  Video
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+```
 
 ## Notes
-- Consider caching video thumbnails
-- Plan for offline video support
-- Monitor YouTube API quotas
-- Allow custom video providers later
+- YouTube API integration deferred to Sprint 2
+- Video preview/validation in future sprint
+- Focus on text content and structure
+- Video URLs stored but not validated

@@ -1,6 +1,7 @@
 import { validateInvitation } from '@/lib/auth/invitations'
 import Link from 'next/link'
 import { SignupFormWithInvitation } from '@/components/auth/signup-form-with-invitation'
+import { registerUser } from './actions'
 
 interface SignupPageProps {
   searchParams: {
@@ -54,6 +55,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         <SignupFormWithInvitation 
           inviteToken={searchParams.invite} 
           invitationData={invitationData}
+          action={registerUser}
         />
       </div>
     </div>

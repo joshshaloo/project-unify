@@ -1,6 +1,5 @@
 import type { prisma } from '../prisma';
 import type { User, UserClub, Club } from '@prisma/client';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 /**
  * Extended User type with club relationships
@@ -17,5 +16,4 @@ export type UserWithClubs = User & {
 export interface Context {
   prisma: typeof prisma;
   user?: UserWithClubs | null;
-  supabaseUser?: SupabaseUser | null;
 }

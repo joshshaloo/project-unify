@@ -1,36 +1,35 @@
 'use client'
 
-import { useState } from 'react'
-// import { useRouter } from 'next/navigation' // Commented out as router is not currently used
-import { signup } from '@/lib/auth/actions'
+import { useFormState, useFormStatus } from 'react-dom'
 
-export function SignupForm() {
-  // const router = useRouter() // Uncomment when implementing client-side navigation
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="group relative flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {pending ? 'Creating account...' : 'Create Account'}
+    </button>
+  )
+}
 
-  async function handleSubmit(formData: FormData) {
-    setError(null)
-    setIsLoading(true)
-    
-    try {
-      const result = await signup(formData)
-      if (result && 'error' in result) {
-        setError(result.error)
-        setIsLoading(false)
-      }
-    } catch (e) {
-      // Signup successful, redirect will happen
-    }
-  }
+interface SignupFormProps {
+  action: (prevState: any, formData: FormData) => Promise<any>
+}
+
+export function SignupForm({ action }: SignupFormProps) {
+  const [state, formAction] = useFormState(action, null)
 
   return (
-    <form className="mt-8 space-y-6" action={handleSubmit}>
-      {error && (
+    <form className="mt-8 space-y-6" action={formAction}>
+      {state?.error && (
         <div className="rounded-md bg-red-50 p-4">
           <p className="text-sm text-red-800">
             {/* Safely display error by using text content only - no HTML interpretation */}
-            {typeof error === 'string' ? error.replace(/<[^>]*>/g, '') : 'An error occurred'}
+            {typeof state.error === 'string' ? state.error.replace(/<[^>]*>/g, '') : 'An error occurred'}
           </p>
         </div>
       )}
@@ -68,20 +67,20 @@ export function SignupForm() {
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
+          <label htmlFor="clubName" className="block text-sm font-medium text-gray-700">
+            Club Name (Optional)
           </label>
           <div className="mt-1">
             <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
+              id="clubName"
+              name="clubName"
+              type="text"
+              autoComplete="organization"
               className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+              placeholder="Enter your club name to create a new club"
             />
           </div>
-          <p className="mt-1 text-sm text-gray-500">Must be at least 8 characters</p>
+          <p className="mt-1 text-sm text-gray-500">Leave blank if joining an existing club</p>
         </div>
       </div>
 
@@ -102,13 +101,7 @@ export function SignupForm() {
       </div>
 
       <div>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Creating account...' : 'Create Account'}
-        </button>
+        <SubmitButton />
       </div>
     </form>
   )

@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${VERSION}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      NEXTAUTH_URL: ${APP_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      EMAIL_SERVER_HOST: ${SMTP_HOST}
+      EMAIL_SERVER_PORT: ${SMTP_PORT}
+      EMAIL_SERVER_USER: ${SMTP_USER}
+      EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - /mnt/truenas/docker_volumes/project-unity/prod/uploads:/app/uploads
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - /mnt/truenas/docker_volumes/project-unity/prod/postgres:/var/lib/postgresql/data
+      - /mnt/truenas/docker_volumes/project-unity/prod/backups:/backups
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - /mnt/truenas/docker_volumes/project-unity/prod/redis:/data
+    deploy:
+      replicas: 1
+
+  n8n:
+    image: n8nio/n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - /mnt/truenas/docker_volumes/project-unity/prod/n8n:/home/node/.n8n
+    ports:
+      - "5678:5678"
+
+networks:
+  default:
+    driver: overlay
+    attachable: true

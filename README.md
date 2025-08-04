@@ -50,7 +50,7 @@ project-unify/
 - **Backend**: tRPC, Prisma, Supabase
 - **Database**: PostgreSQL (via Supabase)
 - **AI**: OpenAI GPT-4
-- **Infrastructure**: Vercel, AWS Lambda
+- **Infrastructure**: Docker, Docker Swarm, Portainer
 - **Monorepo**: Turborepo, pnpm
 
 ## 📜 Available Scripts
@@ -77,11 +77,14 @@ pnpm db:studio        # Open Prisma Studio
 
 ### Preview Deployments
 
-Every pull request gets an automatic preview deployment on Vercel.
+Every pull request triggers:
+1. Docker image build and push to GitHub Container Registry
+2. Automatic preview deployment via Portainer API
+3. E2E tests run against the preview environment
 
 ### Production Deployment
 
-Merges to `main` branch trigger automatic production deployments.
+Merges to `main` branch trigger automatic production deployments via GitHub Actions and Portainer.
 
 ## 📖 Documentation
 

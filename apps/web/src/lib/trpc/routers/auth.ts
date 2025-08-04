@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '../procedures'
 import { TRPCError } from '@trpc/server'
-import { createClient } from '@/lib/supabase/server'
 import type { PrismaClient } from '@prisma/client'
 
 export const authRouter = createTRPCRouter({
@@ -113,13 +112,8 @@ export const authRouter = createTRPCRouter({
 
   // Sign out (client-side helper)
   signOut: protectedProcedure.mutation(async () => {
-    try {
-      const supabase = await createClient()
-      await supabase.auth.signOut()
-    } catch (error) {
-      // Log error but don't fail the request - sign out should always succeed from user perspective
-      console.error('Sign out error:', error)
-    }
+    // Sign out is handled by the server action that clears the cookie
+    // This endpoint is kept for compatibility
     return { success: true }
   }),
 })

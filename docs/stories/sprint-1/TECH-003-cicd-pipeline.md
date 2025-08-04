@@ -3,46 +3,52 @@
 **Type:** Technical Foundation  
 **Points:** 5  
 **Priority:** P1 (High)  
-**Dependencies:** TECH-001  
+**Dependencies:** TECH-001, TECH-004  
 
 ## Description
-Set up GitHub Actions for continuous integration and Vercel for continuous deployment. Establish quality gates and automated testing to ensure code quality from the start.
+Set up GitHub Actions for continuous integration with Docker builds and deployment via Portainer. Establish quality gates and automated testing to ensure code quality from the start.
 
 ## Acceptance Criteria
 - [ ] GitHub Actions workflow for PR validation
 - [ ] Automated tests run on every push
 - [ ] Type checking across all workspaces
 - [ ] Linting and formatting checks
-- [ ] Build verification for all apps
-- [ ] Vercel project connected for preview deployments
-- [ ] Production deployment pipeline configured
-- [ ] Environment variables properly managed
+- [ ] Docker image build and push to ghcr.io
+- [ ] Portainer webhook triggers deployment
+- [ ] Environment-specific configurations
 - [ ] Branch protection rules enabled
+- [ ] Build status notifications
 
 ## Technical Details
 
 ### GitHub Actions Workflow
 ```yaml
-name: CI
+# .github/workflows/ci.yml
+name: CI/CD Pipeline
+
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - uses: pnpm/action-setup@v2
         with:
           version: 8
           
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'pnpm'
           
       - run: pnpm install --frozen-lockfile
@@ -58,58 +64,230 @@ jobs:
         
       - name: Build
         run: pnpm build
+
+  build-and-push:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Deploy to Preview
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL_PREVIEW }} \
+            -H "Content-Type: application/json" \
+            -d '{
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop",
+              "env": "preview"
+            }'
+            
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL_PROD }} \
+            -H "Content-Type: application/json" \
+            -d '{
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest",
+              "env": "production"
+            }'
+
+  e2e-tests:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          
+      - run: pnpm install --frozen-lockfile
+      
+      - name: Wait for deployment
+        run: sleep 60
         
-      - name: E2E Tests
-        if: github.event_name == 'pull_request'
+      - name: Run E2E tests
         run: pnpm test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PREVIEW_URL }}
 ```
 
-### Vercel Configuration
+### Dockerfile (Multi-stage build)
+```dockerfile
+# Dockerfile
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+RUN corepack enable pnpm
+WORKDIR /app
+
+# Dependencies
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/*/package.json ./packages/*/
+RUN pnpm install --frozen-lockfile
+
+# Builder
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY . .
+RUN pnpm build --filter=web
+
+# Runner
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "apps/web/server.js"]
+```
+
+### Environment Configuration
+```yaml
+# .github/workflows/deploy-preview.yml
+env:
+  # Build-time variables
+  NEXT_PUBLIC_APP_URL: https://preview.soccer-platform.com
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+  
+  # Runtime secrets (via Portainer)
+  DATABASE_URL: ${{ secrets.DATABASE_URL_PREVIEW }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+### Branch Protection Rules
 ```json
 {
-  "buildCommand": "pnpm turbo run build --filter=web",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "regions": ["iad1"],
-  "functions": {
-    "apps/api/src/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
+  "main": {
+    "required_status_checks": {
+      "strict": true,
+      "contexts": ["validate", "build-and-push"]
+    },
+    "enforce_admins": true,
+    "required_pull_request_reviews": {
+      "required_approving_review_count": 1,
+      "dismiss_stale_reviews": true
+    },
+    "restrictions": null
   }
 }
 ```
 
-### Environment Management
-- Development: `.env.local` files (gitignored)
-- Preview: Vercel environment variables
-- Production: Vercel environment variables with restricted access
+### Portainer Webhook Configuration
+```bash
+# Preview environment webhook
+https://portainer.soccer-platform.com/api/webhooks/abc-123-preview
+
+# Production environment webhook  
+https://portainer.soccer-platform.com/api/webhooks/xyz-789-production
+```
 
 ## Implementation Steps
-1. Create `.github/workflows/ci.yml`
-2. Configure Vercel project
-3. Set up environment variables in Vercel
-4. Create branch protection rules
-5. Add status badges to README
-6. Configure deployment notifications
-7. Set up error tracking (Sentry)
+1. Create GitHub Actions workflows
+2. Set up GitHub Container Registry
+3. Configure Portainer webhooks
+4. Add repository secrets
+5. Create Dockerfile
+6. Set up branch protection
+7. Test preview deployment
 8. Document deployment process
+9. Set up notifications
 
 ## Testing
-- Create a test PR - should trigger all checks
-- Merge to develop - should deploy to preview
-- Merge to main - should deploy to production
-- Force a test failure - should block merge
-- Check Vercel preview comments work
+- Create test PR → should run validation
+- Push to develop → should deploy preview
+- Merge to main → should deploy production
+- Force test failure → should block merge
+- Check Docker image in ghcr.io
+- Verify Portainer deployment
 
-## Branch Strategy
-- `main` - Production deployments
-- `develop` - Staging/preview deployments  
-- `feature/*` - Feature branches (PR preview)
-- `hotfix/*` - Emergency fixes
+## Deployment Flow
+1. **Feature Branch** → Run tests only
+2. **Develop Branch** → Build, push, deploy to preview
+3. **Main Branch** → Build, push, deploy to production
+
+## Secrets Required
+```bash
+# GitHub repository secrets
+PORTAINER_WEBHOOK_URL_PREVIEW
+PORTAINER_WEBHOOK_URL_PROD
+PREVIEW_URL
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_KEY
+DATABASE_URL_PREVIEW
+DATABASE_URL_PROD
+OPENAI_API_KEY
+```
 
 ## Notes
-- Set up Vercel spending limits
-- Configure custom domain later
-- Add performance budgets
-- Consider adding visual regression tests
+- Images tagged with branch name and SHA
+- Preview deployments auto-update
+- Production requires manual approval (future)
+- Container registry cleanup after 30 days
+- Monitor build times and optimize

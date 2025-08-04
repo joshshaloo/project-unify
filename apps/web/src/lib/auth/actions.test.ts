@@ -1,34 +1,83 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
-import { prisma } from '@/lib/prisma'
+import { cookies } from 'next/headers'
+import * as magicLinkModule from './magic-link'
+import jwt from 'jsonwebtoken'
 
 // Import the actions
-import { login, signup, signOut, getUser } from './actions'
+import { signIn, registerUser, verifyToken } from './actions'
+import { getSession, clearSession } from './magic-link'
 
 // Import test utilities
 import { createMockFormData } from '@/test/utils/test-utils'
-import { 
-  mockUser,
-  mockDbUser,
-} from '@/test/mocks/supabase'
 
 // Get the mocked versions
-const mockCreateClient = vi.mocked(createClient)
 const mockRedirect = vi.mocked(redirect)
-const mockPrisma = prisma as any
+const mockCookies = vi.mocked(cookies)
 
-// Mock Next.js functions - redirect throws an error in Next.js
+// Mock Prisma
+vi.mock('@/lib/prisma', () => ({
+  db: {
+    user: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    invitation: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    userClub: {
+      create: vi.fn(),
+    },
+    magicLink: {
+      delete: vi.fn(),
+    },
+    $transaction: vi.fn(),
+  },
+}))
+
+// Import after mocking
+import { db } from '@/lib/prisma'
+const mockDb = db as any
+
+// Mock modules
 vi.mock('next/navigation', () => ({
   redirect: vi.fn().mockImplementation((url) => {
     throw new Error(`NEXT_REDIRECT: ${url}`)
   }),
 }))
 
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(() => Promise.resolve({
+    set: vi.fn(),
+    get: vi.fn(),
+    delete: vi.fn(),
+    has: vi.fn(),
+    getAll: vi.fn(),
+    size: 0,
+    [Symbol.iterator]: vi.fn(),
+  })),
+}))
+
+vi.mock('./magic-link', async () => {
+  const actual = await vi.importActual<typeof import('./magic-link')>('./magic-link')
+  return {
+    ...actual,
+    generateMagicLink: vi.fn().mockResolvedValue('mock-token'),
+    verifyMagicLink: vi.fn(),
+    createSession: vi.fn().mockResolvedValue('mock-session-token'),
+    // Don't mock getSession and clearSession - use real implementations
+  }
+})
+
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    sign: vi.fn(() => 'mock-jwt-token'),
+    verify: vi.fn(() => ({ userId: 'test-user-id' })),
+  },
 }))
 
 describe('Auth Actions', () => {
@@ -36,491 +85,265 @@ describe('Auth Actions', () => {
     vi.clearAllMocks()
     
     // Reset all mocks to default state
-    mockPrisma.user.findUnique.mockResolvedValue(null)
-    mockPrisma.user.create.mockResolvedValue(null as any)
-    mockPrisma.invitation.findUnique.mockResolvedValue(null)
-    mockPrisma.invitation.update.mockResolvedValue(null as any)
-    mockPrisma.userClub.create.mockResolvedValue(null as any)
-    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => Promise<any>) => {
-      return callback(mockPrisma)
+    mockDb.user.findUnique.mockResolvedValue(null)
+    mockDb.user.findFirst.mockResolvedValue(null)
+    mockDb.user.create.mockResolvedValue(null)
+    mockDb.user.update.mockResolvedValue(null)
+    mockDb.invitation.findUnique.mockResolvedValue(null)
+    mockDb.invitation.update.mockResolvedValue(null)
+    mockDb.userClub.create.mockResolvedValue(null)
+    mockDb.magicLink.delete.mockResolvedValue(null)
+    mockDb.$transaction.mockImplementation(async (callback: (tx: typeof mockDb) => Promise<any>) => {
+      return callback(mockDb)
     })
     
-    // Reset createClient mock to default
-    mockCreateClient.mockResolvedValue({
-      auth: {
-        signInWithPassword: vi.fn().mockResolvedValue({ data: null, error: null }),
-        signUp: vi.fn().mockResolvedValue({ data: null, error: null }),
-        signOut: vi.fn().mockResolvedValue({ error: null }),
-        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
-      },
-    } as any)
+    // Reset magic link mocks
+    vi.mocked(magicLinkModule.generateMagicLink).mockReset()
+    vi.mocked(magicLinkModule.generateMagicLink).mockResolvedValue('mock-token')
+    vi.mocked(magicLinkModule.verifyMagicLink).mockReset()
+    vi.mocked(magicLinkModule.createSession).mockReset()
+    vi.mocked(magicLinkModule.createSession).mockResolvedValue('mock-session-token')
   })
 
-  describe('login', () => {
-    it('should successfully log in a user with valid credentials', async () => {
-      const mockSupabase = {
-        auth: {
-          signInWithPassword: vi.fn().mockResolvedValue({
-            data: { user: mockUser, session: { access_token: 'mock-token' } },
-            error: null,
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
+  describe('signIn', () => {
+    it('should successfully send magic link for existing user', async () => {
+      const formData = createMockFormData({
+        email: 'test@example.com',
+      })
+
+      const result = await signIn(null, formData)
+
+      expect(magicLinkModule.generateMagicLink).toHaveBeenCalledWith('test@example.com')
+      expect(result).toEqual({ 
+        success: true, 
+        message: 'Check your email for a magic link to sign in!' 
+      })
+    })
+
+    it('should return error for invalid email', async () => {
+      const formData = createMockFormData({
+        email: 'invalid-email',
+      })
+
+      const result = await signIn(null, formData)
+
+      expect(result).toEqual({ error: 'Invalid email address' })
+      expect(magicLinkModule.generateMagicLink).not.toHaveBeenCalled()
+    })
+
+    it('should handle magic link generation errors', async () => {
+      vi.mocked(magicLinkModule.generateMagicLink).mockRejectedValue(new Error('Email service error'))
 
       const formData = createMockFormData({
         email: 'test@example.com',
-        password: 'password123',
       })
 
-      // Login function redirects on success, so we expect it to throw
-      await expect(login(formData)).rejects.toThrow('NEXT_REDIRECT: /dashboard')
+      const result = await signIn(null, formData)
 
-      // Check if mockCreateClient was called
-      expect(mockCreateClient).toHaveBeenCalled()
-      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        password: 'password123',
-      })
-      expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
-      expect(mockRedirect).toHaveBeenCalledWith('/dashboard')
+      expect(result).toEqual({ error: 'Failed to send magic link' })
     })
+  })
 
-    it('should return error for invalid credentials', async () => {
-      const mockSupabase = {
-        auth: {
-          signInWithPassword: vi.fn().mockResolvedValue({
-            data: { user: null, session: null },
-            error: { message: 'Invalid login credentials' },
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
+  describe('registerUser', () => {
+    it('should successfully send magic link for registration', async () => {
 
       const formData = createMockFormData({
-        email: 'wrong@example.com',
-        password: 'wrongpassword',
+        email: 'newuser@example.com',
+        name: 'New User',
       })
 
-      const result = await login(formData)
-      
-      expect(result).toEqual({ error: 'Invalid email or password' })
-      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
-        email: 'wrong@example.com',
-        password: 'wrongpassword',
+      const result = await registerUser(null, formData)
+
+      expect(magicLinkModule.generateMagicLink).toHaveBeenCalledWith('newuser@example.com')
+      expect(result).toEqual({ 
+        success: true, 
+        message: 'Check your email to complete registration!' 
       })
-      expect(mockRedirect).not.toHaveBeenCalled()
     })
 
-    it('should return error for missing email', async () => {
+    it('should send magic link even if user already exists', async () => {
+      // The registerUser function doesn't check if user exists
+      // It just sends a magic link
+
       const formData = createMockFormData({
-        email: '',
-        password: 'password123',
+        email: 'existing@example.com',
+        name: 'Test User',
       })
 
-      const result = await login(formData)
+      const result = await registerUser(null, formData)
+
+      expect(result).toEqual({ 
+        success: true,
+        message: 'Check your email to complete registration!' 
+      })
+      expect(magicLinkModule.generateMagicLink).toHaveBeenCalledWith('existing@example.com')
+    })
+
+    it('should validate required fields', async () => {
+      const formData = createMockFormData({
+        email: 'invalid-email',
+        name: 'Test User',
+      })
+
+      const result = await registerUser(null, formData)
 
       expect(result).toEqual({ error: 'Invalid email address' })
     })
 
-    it('should return error for missing password', async () => {
+    it('should handle magic link generation errors', async () => {
+      vi.mocked(magicLinkModule.generateMagicLink).mockRejectedValue(new Error('Email error'))
+
       const formData = createMockFormData({
+        email: 'newuser@example.com',
+        name: 'New User',
+      })
+
+      const result = await registerUser(null, formData)
+
+      expect(result).toEqual({ error: 'Failed to send magic link' })
+    })
+  })
+
+  describe('verifyToken', () => {
+    it('should successfully verify token and create session', async () => {
+      const mockResult = {
         email: 'test@example.com',
-        password: '',
-      })
-
-      const result = await login(formData)
-
-      expect(result).toEqual({ error: 'Password is required' })
-    })
-  })
-
-  describe('signup', () => {
-    it('should successfully sign up a user without invitation', async () => {
-      const mockSupabase = {
-        auth: {
-          signUp: vi.fn().mockResolvedValue({
-            data: { 
-              user: mockUser, 
-              session: null // Email confirmation required
-            },
-            error: null,
-          }),
-        },
+        userId: 'user-123'
       }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
       
-      // Mock successful user creation
-      mockPrisma.user.create.mockResolvedValue(mockDbUser)
-
-      const formData = createMockFormData({
-        email: 'newuser@example.com',
-        password: 'password123',
-        name: 'New User',
-      })
-
-      // Signup function redirects on success, so we expect it to throw
-      await expect(signup(formData)).rejects.toThrow('NEXT_REDIRECT: /auth/verify-email')
-
-      expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
-        email: 'newuser@example.com',
-        password: 'password123',
-        options: {
-          data: {
-            name: 'New User',
-          }
-        }
-      })
-      expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
-      expect(mockRedirect).toHaveBeenCalledWith('/auth/verify-email')
-    })
-
-    it('should successfully sign up a user with valid invitation', async () => {
-      const mockSupabase = {
-        auth: {
-          signUp: vi.fn().mockResolvedValue({
-            data: { 
-              user: mockUser, 
-              session: null
-            },
-            error: null,
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
+      vi.mocked(magicLinkModule.verifyMagicLink).mockResolvedValue(mockResult)
       
-      // Mock valid invitation
-      const mockInvitation = {
-        id: 'invite-123',
-        token: 'valid-token-123',
-        email: 'inviteduser@example.com',
-        role: 'assistant_coach',
-        clubId: 'club-1',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        usedAt: null,
-        usedByEmail: null,
-        club: { id: 'club-1', name: 'Test FC' },
-      }
-      mockPrisma.invitation.findUnique.mockResolvedValue(mockInvitation)
-      mockPrisma.user.create.mockResolvedValue(mockDbUser)
+      // Mock getRegistrationIntent to return null (no registration intent)
+      const getRegistrationIntent = vi.fn().mockResolvedValue(null)
+      vi.stubGlobal('getRegistrationIntent', getRegistrationIntent)
 
-      const formData = createMockFormData({
-        email: 'inviteduser@example.com',
-        password: 'password123',
-        name: 'Invited User',
-        invite: 'valid-token-123',
-      })
+      // verifyToken redirects on success, so we expect it to throw
+      await expect(verifyToken('valid-token')).rejects.toThrow('NEXT_REDIRECT: /dashboard')
 
-      // Signup function redirects on success, so we expect it to throw
-      await expect(signup(formData)).rejects.toThrow('NEXT_REDIRECT: /auth/verify-email')
-
-      expect(mockPrisma.invitation.findUnique).toHaveBeenCalledWith({
-        where: { token: 'valid-token-123' },
-        include: { club: true },
-      })
-      expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
-        email: 'inviteduser@example.com',
-        password: 'password123',
-        options: {
-          data: {
-            name: 'Invited User',
-          }
-        }
-      })
-      expect(mockRedirect).toHaveBeenCalledWith('/auth/verify-email')
+      expect(magicLinkModule.verifyMagicLink).toHaveBeenCalledWith('valid-token')
+      expect(magicLinkModule.createSession).toHaveBeenCalledWith('user-123', 'test@example.com')
+      expect(mockRedirect).toHaveBeenCalledWith('/dashboard')
     })
 
-    it('should return error for invalid invitation token', async () => {
-      mockPrisma.invitation.findUnique.mockResolvedValue(null)
+    it('should handle registration intent and create club', async () => {
+      const mockResult = {
+        email: 'test@example.com',
+        userId: 'user-123'
+      }
+      
+      vi.mocked(magicLinkModule.verifyMagicLink).mockResolvedValue(mockResult)
 
-      const formData = createMockFormData({
-        email: 'user@example.com',
-        password: 'password123',
-        name: 'Test User',
-        invite: 'invalid-token',
+      // Setup transaction mocks
+      const mockClub = { id: 'club-123', name: 'Test Club FC' }
+      mockDb.$transaction.mockImplementation(async (fn: any) => {
+        await fn({
+          user: { update: vi.fn() },
+          club: { create: vi.fn().mockResolvedValue(mockClub) },
+          userClub: { create: vi.fn() }
+        })
       })
 
-      const result = await signup(formData)
+      await expect(verifyToken('valid-token')).rejects.toThrow('NEXT_REDIRECT: /dashboard')
 
-      expect(result).toEqual({ error: 'Invalid invitation token' })
-      expect(mockPrisma.invitation.findUnique).toHaveBeenCalledWith({
-        where: { token: 'invalid-token' },
-        include: { club: true },
-      })
+      expect(magicLinkModule.verifyMagicLink).toHaveBeenCalledWith('valid-token')
+      expect(magicLinkModule.createSession).toHaveBeenCalledWith('user-123', 'test@example.com')
+      expect(mockRedirect).toHaveBeenCalledWith('/dashboard')
     })
 
-    it('should return error for used invitation', async () => {
-      const usedInvitation = {
-        id: 'invite-123',
-        token: 'used-token',
-        email: 'user@example.com',
-        role: 'assistant_coach',
-        clubId: 'club-1',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        usedAt: new Date('2024-01-01'),
-        usedByEmail: 'someone@example.com',
-        club: { id: 'club-1', name: 'Test FC' },
-      }
-      mockPrisma.invitation.findUnique.mockResolvedValue(usedInvitation)
+    it('should return error for invalid token', async () => {
+      vi.mocked(magicLinkModule.verifyMagicLink).mockResolvedValue(null)
 
-      const formData = createMockFormData({
-        email: 'user@example.com',
-        password: 'password123',
-        name: 'Test User',
-        invite: 'used-token',
-      })
+      const result = await verifyToken('invalid-token')
 
-      const result = await signup(formData)
-
-      expect(result).toEqual({ error: 'This invitation has already been used' })
+      expect(result).toEqual({ error: 'Invalid or expired link' })
+      expect(mockDb.user.findUnique).not.toHaveBeenCalled()
     })
 
-    it('should return error for expired invitation', async () => {
-      const expiredInvitation = {
-        id: 'invite-123',
-        token: 'expired-token',
-        email: 'user@example.com',
-        role: 'assistant_coach',
-        clubId: 'club-1',
-        expiresAt: new Date('2023-01-01'), // Past date
-        usedAt: null,
-        usedByEmail: null,
-        club: { id: 'club-1', name: 'Test FC' },
-      }
-      mockPrisma.invitation.findUnique.mockResolvedValue(expiredInvitation)
+    it('should handle verifyMagicLink errors', async () => {
+      vi.mocked(magicLinkModule.verifyMagicLink).mockRejectedValue(new Error('Database error'))
 
-      const formData = createMockFormData({
-        email: 'user@example.com',
-        password: 'password123',
-        name: 'Test User',
-        invite: 'expired-token',
-      })
+      const result = await verifyToken('valid-token')
 
-      const result = await signup(formData)
-
-      expect(result).toEqual({ error: 'This invitation has expired' })
-    })
-
-    it('should return error when invitation email does not match signup email', async () => {
-      const invitation = {
-        id: 'invite-123',
-        token: 'valid-token-123',
-        email: 'specific@example.com',
-        role: 'assistant_coach',
-        clubId: 'club-1',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        usedAt: null,
-        usedByEmail: null,
-        club: { id: 'club-1', name: 'Test FC' },
-      }
-
-      mockPrisma.invitation.findUnique.mockResolvedValue(invitation)
-
-      const formData = createMockFormData({
-        email: 'different@example.com',
-        password: 'password123',
-        name: 'Test User',
-        invite: 'valid-token-123',
-      })
-
-      const result = await signup(formData)
-
-      expect(result).toEqual({ error: 'This invitation is for a different email address' })
-    })
-
-    it('should return error for Supabase signup failure', async () => {
-      const mockSupabase = {
-        auth: {
-          signUp: vi.fn().mockResolvedValue({
-            data: { user: null, session: null },
-            error: { message: 'User already registered' },
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-
-      const formData = createMockFormData({
-        email: 'existing@example.com',
-        password: 'password123',
-        name: 'Test User',
-      })
-
-      const result = await signup(formData)
-
-      expect(result).toEqual({ error: 'Failed to create account. Please try again.' })
-      expect(mockSupabase.auth.signUp).toHaveBeenCalled()
-    })
-
-    it('should continue on database error during user creation', async () => {
-      const mockSupabase = {
-        auth: {
-          signUp: vi.fn().mockResolvedValue({
-            data: { 
-              user: mockUser, 
-              session: null
-            },
-            error: null,
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockPrisma.$transaction.mockRejectedValue(new Error('Database error'))
-
-      const formData = createMockFormData({
-        email: 'newuser@example.com',
-        password: 'password123',
-        name: 'New User',
-      })
-
-      // Should not throw error, but continue to redirect
-      await expect(signup(formData)).rejects.toThrow('NEXT_REDIRECT: /auth/verify-email')
-
-      expect(mockSupabase.auth.signUp).toHaveBeenCalled()
-      expect(mockRedirect).toHaveBeenCalledWith('/auth/verify-email')
+      expect(result).toEqual({ error: 'Invalid or expired link' })
     })
   })
 
-  describe('signOut', () => {
-    it('should successfully sign out user', async () => {
-      const mockSupabase = {
-        auth: {
-          signOut: vi.fn().mockResolvedValue({ error: null }),
-        },
+  describe('clearSession', () => {
+    it('should successfully clear session', async () => {
+      const mockCookieStore = {
+        set: vi.fn(),
+        get: vi.fn(),
+        delete: vi.fn(),
+        has: vi.fn(),
+        getAll: vi.fn(),
+        size: 0,
+        [Symbol.iterator]: vi.fn(),
       }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
+      mockCookies.mockResolvedValueOnce(mockCookieStore as any)
 
-      // SignOut function redirects, so we expect it to throw
-      await expect(signOut()).rejects.toThrow('NEXT_REDIRECT: /')
+      await clearSession()
 
-      expect(mockSupabase.auth.signOut).toHaveBeenCalled()
-      expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
-      expect(mockRedirect).toHaveBeenCalledWith('/')
-    })
-
-    it('should handle sign out even if Supabase fails', async () => {
-      const mockSupabase = {
-        auth: {
-          signOut: vi.fn().mockRejectedValue(new Error('Network error')),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-
-      // SignOut function redirects, so we expect it to throw
-      await expect(signOut()).rejects.toThrow('NEXT_REDIRECT: /')
-
-      expect(mockSupabase.auth.signOut).toHaveBeenCalled()
-      expect(revalidatePath).toHaveBeenCalledWith('/', 'layout')
-      expect(mockRedirect).toHaveBeenCalledWith('/')
+      expect(mockCookieStore.delete).toHaveBeenCalledWith('session')
     })
   })
 
-  describe('getUser', () => {
-    it('should return null when no user is authenticated', async () => {
-      const mockSupabase = {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: null },
-            error: null,
-          }),
-        },
+  describe('getSession', () => {
+    it('should return null when no session cookie', async () => {
+      const mockCookieStore = {
+        get: vi.fn().mockReturnValue(null),
+        set: vi.fn(),
+        delete: vi.fn(),
+        has: vi.fn(),
+        getAll: vi.fn(),
+        size: 0,
+        [Symbol.iterator]: vi.fn(),
       }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
+      mockCookies.mockResolvedValueOnce(mockCookieStore as any)
 
-      const user = await getUser()
+      const session = await getSession()
 
-      expect(user).toBeNull()
-      expect(mockSupabase.auth.getUser).toHaveBeenCalled()
+      expect(session).toBeNull()
     })
 
-    it('should return null when user exists in Supabase but not in database', async () => {
-      const mockSupabase = {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: mockUser },
-            error: null,
-          }),
-        },
+    it('should return session data when valid session', async () => {
+      const mockCookieStore = {
+        get: vi.fn().mockReturnValue({ value: 'valid-jwt-token' }),
+        set: vi.fn(),
+        delete: vi.fn(),
+        has: vi.fn(),
+        getAll: vi.fn(),
+        size: 0,
+        [Symbol.iterator]: vi.fn(),
       }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockPrisma.user.findUnique.mockResolvedValue(null)
+      mockCookies.mockResolvedValueOnce(mockCookieStore as any)
+      
+      vi.mocked(jwt.verify).mockReturnValue({ userId: 'user-123', email: 'test@example.com' } as any)
 
-      const user = await getUser()
+      const session = await getSession()
 
-      expect(user).toBeNull()
-      expect(mockSupabase.auth.getUser).toHaveBeenCalled()
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { supabaseId: mockUser.id },
-        include: {
-          clubs: {
-            include: {
-              club: true,
-            },
-          },
-        },
+      expect(jwt.verify).toHaveBeenCalledWith('valid-jwt-token', process.env.NEXTAUTH_SECRET)
+      expect(session).toEqual({ userId: 'user-123', email: 'test@example.com' })
+    })
+
+    it('should return null for invalid JWT', async () => {
+      const mockCookieStore = {
+        get: vi.fn().mockReturnValue({ value: 'invalid-jwt' }),
+        set: vi.fn(),
+        delete: vi.fn(),
+        has: vi.fn(),
+        getAll: vi.fn(),
+        size: 0,
+        [Symbol.iterator]: vi.fn(),
+      }
+      mockCookies.mockResolvedValueOnce(mockCookieStore as any)
+      
+      vi.mocked(jwt.verify).mockImplementation(() => {
+        throw new Error('Invalid token')
       })
-    })
 
-    it('should return full user data when authenticated and exists in database', async () => {
-      const mockSupabase = {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: mockUser },
-            error: null,
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockPrisma.user.findUnique.mockResolvedValue(mockDbUser)
+      const session = await getSession()
 
-      const user = await getUser()
-
-      expect(user).toEqual(mockDbUser)
-      expect(mockSupabase.auth.getUser).toHaveBeenCalled()
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { supabaseId: mockUser.id },
-        include: {
-          clubs: {
-            include: {
-              club: true,
-            },
-          },
-        },
-      })
-    })
-
-    it('should handle database errors gracefully', async () => {
-      const mockSupabase = {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: mockUser },
-            error: null,
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-      mockPrisma.user.findUnique.mockRejectedValue(new Error('Database error'))
-
-      const user = await getUser()
-
-      expect(user).toBeNull()
-      expect(mockSupabase.auth.getUser).toHaveBeenCalled()
-    })
-
-    it('should handle Supabase errors gracefully', async () => {
-      const mockSupabase = {
-        auth: {
-          getUser: vi.fn().mockResolvedValue({
-            data: { user: null },
-            error: { message: 'Network error' },
-          }),
-        },
-      }
-      mockCreateClient.mockResolvedValue(mockSupabase as any)
-
-      const user = await getUser()
-
-      expect(user).toBeNull()
-      expect(mockSupabase.auth.getUser).toHaveBeenCalled()
+      expect(session).toBeNull()
     })
   })
 })

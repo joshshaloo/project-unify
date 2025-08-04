@@ -6,6 +6,10 @@ node_modules
 # Testing
 coverage
 .nyc_output
+test-results/
+test-results.json
+playwright-report/
+.last-run.json
 
 # Next.js
 .next/

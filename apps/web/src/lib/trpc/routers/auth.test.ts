@@ -3,17 +3,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createMockTRPCContext } from '@/test/utils/test-utils'
 import { TRPCError } from '@trpc/server'
 import { createTestUser, createTestClub, createTestUserClub } from '@/test/factories'
-
-// Mock the supabase server createClient function
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
-}))
-
 // Import after mocking
 import { authRouter } from './auth'
-import { createClient } from '@/lib/supabase/server'
 
-const mockCreateClient = vi.mocked(createClient)
+// Mock modules
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    sign: vi.fn(() => 'mock-jwt-token'),
+    verify: vi.fn(() => ({ userId: 'test-user-id' })),
+  },
+}))
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(() => ({
+    set: vi.fn(),
+    get: vi.fn(),
+    delete: vi.fn(),
+  })),
+}))
 
 describe('Auth Router', () => {
   let ctx: any
@@ -304,52 +311,10 @@ describe('Auth Router', () => {
       const testUser = createTestUser()
       ctx.user = testUser
 
-      const mockSupabase = {
-        auth: {
-          signOut: vi.fn().mockResolvedValue({ error: null }),
-        },
-      }
-      
-      // Set up the mock for this specific test
-      vi.mocked(createClient).mockResolvedValue(mockSupabase as any)
-
       const result = await caller.signOut()
 
-      expect(mockCreateClient).toHaveBeenCalled()
-      expect(mockSupabase.auth.signOut).toHaveBeenCalled()
-      expect(result).toEqual({ success: true })
-    })
-
-    it('should handle Supabase sign out errors', async () => {
-      const testUser = createTestUser()
-      ctx.user = testUser
-
-      const mockSupabase = {
-        auth: {
-          signOut: vi.fn().mockResolvedValue({ error: { message: 'Sign out failed' } }),
-        },
-      }
-      vi.mocked(createClient).mockResolvedValue(mockSupabase as any)
-
-      // Should still return success even if Supabase fails
-      const result = await caller.signOut()
-
-      expect(result).toEqual({ success: true })
-    })
-
-    it('should handle network errors during sign out', async () => {
-      const testUser = createTestUser()
-      ctx.user = testUser
-
-      const mockSupabase = {
-        auth: {
-          signOut: vi.fn().mockRejectedValue(new Error('Network error')),
-        },
-      }
-      vi.mocked(createClient).mockResolvedValue(mockSupabase as any)
-
-      // Should still return success even if request fails (error is caught and logged)
-      const result = await caller.signOut()
+      // The tRPC endpoint just returns success
+      // Actual sign out is handled by the server action
       expect(result).toEqual({ success: true })
     })
   })

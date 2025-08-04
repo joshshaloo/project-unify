@@ -1,12 +1,23 @@
-import { getUser, signOut } from '@/lib/auth/actions'
+import { getSession } from '@/lib/auth/magic-link'
+import { signOut } from './actions'
 import { redirect } from 'next/navigation'
 import { RoleBadge } from '@/components/auth/role-badge'
 import { api } from '@/lib/trpc/server-api'
 import type { ClubWithUserData } from '@/lib/types/club'
+import { prisma } from '@/lib/prisma'
 
 export default async function DashboardPage() {
-  const user = await getUser()
+  const session = await getSession()
   
+  if (!session) {
+    redirect('/auth/login')
+  }
+
+  // Get user details from database
+  const user = await prisma.user.findUnique({
+    where: { email: session.email }
+  })
+
   if (!user) {
     redirect('/auth/login')
   }

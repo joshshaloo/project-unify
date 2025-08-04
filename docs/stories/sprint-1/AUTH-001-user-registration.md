@@ -1,136 +1,238 @@
 # AUTH-001: User registration with Supabase
 
 **Type:** Authentication  
-**Points:** 5  
+**Points:** 4  
 **Priority:** P0 (Blocker)  
-**Dependencies:** TECH-002  
+**Dependencies:** TECH-002, TECH-004  
 
 ## Description
-Implement user registration flow using Supabase Auth, including email verification and initial profile creation. Support the invitation-based registration model where clubs invite users.
+Implement basic user registration flow using Supabase Auth with email verification. Create a simple self-registration process for MVP, deferring invitation system to Sprint 2.
 
 ## Acceptance Criteria
-- [ ] Registration API endpoint implemented
+- [ ] Registration page with form
 - [ ] Email/password registration working
 - [ ] Email verification flow complete
 - [ ] User profile created on registration
-- [ ] Invitation token validation
+- [ ] Basic club creation for first user
 - [ ] Error handling for common cases
 - [ ] Registration UI components
 - [ ] Success/error messaging
-- [ ] Redirect to appropriate dashboard
+- [ ] Redirect to dashboard after verification
 
 ## Technical Details
 
-### Registration Flow
-1. User receives invitation email with token
-2. Clicks link to registration page
-3. Token validates and pre-fills club/role
-4. User enters email, password, name
-5. Supabase creates auth user
-6. Trigger creates user profile
-7. Creates UserClubRole entry
-8. Email verification sent
-9. User redirected to verify page
+### Registration Flow (Simplified for MVP)
+1. User navigates to /register
+2. Enters email, password, name, club name
+3. Supabase creates auth user
+4. Database trigger creates user profile
+5. Creates new club and UserClubRole entry
+6. Email verification sent via Supabase
+7. User redirected to verify page
+8. After verification, redirect to dashboard
 
-### API Implementation
+### Server Action Implementation (Simplified)
 ```typescript
-// apps/api/src/routers/auth.ts
-export const authRouter = router({
-  register: publicProcedure
-    .input(z.object({
-      email: z.string().email(),
-      password: z.string().min(8),
-      name: z.string().min(2),
-      inviteToken: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Validate invitation token
-      const invite = await validateInvite(input.inviteToken);
-      if (!invite) throw new TRPCError({ code: 'BAD_REQUEST' });
-      
-      // Create Supabase user
-      const { data: authUser, error } = await ctx.supabase.auth.signUp({
-        email: input.email,
-        password: input.password,
-        options: {
-          data: { name: input.name }
-        }
-      });
-      
-      if (error) throw new TRPCError({ code: 'BAD_REQUEST' });
-      
-      // Profile created via database trigger
-      // Create club association
-      await ctx.db.userClubRole.create({
-        data: {
-          userId: authUser.user.id,
-          clubId: invite.clubId,
-          role: invite.role,
-          isPrimary: true,
-        }
-      });
-      
-      return { success: true };
-    }),
-});
+// apps/web/src/lib/auth/actions.ts
+'use server'
+
+export async function registerUser(formData: FormData) {
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const name = formData.get('name') as string;
+  const clubName = formData.get('clubName') as string;
+  
+  // Create Supabase user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+    }
+  });
+  
+  if (authError) {
+    return { error: authError.message };
+  }
+  
+  // Create club and association (via database function)
+  const { error: dbError } = await supabase.rpc('create_club_with_owner', {
+    user_id: authData.user!.id,
+    club_name: clubName,
+    user_role: 'admin'
+  });
+  
+  if (dbError) {
+    return { error: 'Failed to create club' };
+  }
+  
+  return { success: true };
+}
 ```
 
 ### Frontend Components
 ```typescript
+// apps/web/src/app/(auth)/register/page.tsx
+export default function RegisterPage() {
+  return (
+    <AuthLayout>
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Create your account</CardTitle>
+          <CardDescription>
+            Start your free trial of the Soccer Platform
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RegisterForm />
+        </CardContent>
+      </Card>
+    </AuthLayout>
+  );
+}
+
 // apps/web/src/components/auth/register-form.tsx
-export function RegisterForm({ inviteToken }: Props) {
-  const register = api.auth.register.useMutation({
-    onSuccess: () => {
-      router.push('/verify-email');
-    }
-  });
+export function RegisterForm() {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string>();
   
-  const form = useForm({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { inviteToken }
-  });
+  async function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      const result = await registerUser(formData);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        router.push('/verify-email');
+      }
+    });
+  }
   
   return (
-    <Form {...form} onSubmit={form.handleSubmit(register.mutate)}>
-      <FormField name="email" label="Email" type="email" />
-      <FormField name="password" label="Password" type="password" />
-      <FormField name="name" label="Full Name" />
-      <Button type="submit" loading={register.isLoading}>
-        Create Account
+    <form action={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          required
+          placeholder="coach@club.com"
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          minLength={8}
+          placeholder="••••••••"
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="name">Full Name</Label>
+        <Input
+          id="name"
+          name="name"
+          required
+          placeholder="John Smith"
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="clubName">Club Name</Label>
+        <Input
+          id="clubName"
+          name="clubName"
+          required
+          placeholder="FC United"
+        />
+      </div>
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? 'Creating account...' : 'Create account'}
       </Button>
-    </Form>
+      
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link href="/login" className="underline">
+          Sign in
+        </Link>
+      </p>
+    </form>
   );
 }
 ```
 
 ## Implementation Steps
-1. Set up Supabase Auth in project
-2. Create database trigger for profiles
-3. Implement invitation validation
-4. Build registration API endpoint
-5. Create registration UI components
-6. Add email verification page
-7. Set up error handling
+1. Configure Supabase Auth settings
+2. Create database trigger for user profiles
+3. Create RPC function for club creation
+4. Build registration page and form
+5. Implement server action
+6. Create email verification page
+7. Add auth callback handler
 8. Test full flow end-to-end
 
+## Database Function
+```sql
+-- Create function to handle club creation with owner
+CREATE OR REPLACE FUNCTION create_club_with_owner(
+  user_id UUID,
+  club_name TEXT,
+  user_role user_role_type DEFAULT 'admin'
+)
+RETURNS void AS $$
+DECLARE
+  new_club_id UUID;
+BEGIN
+  -- Create club
+  INSERT INTO clubs (name, created_by)
+  VALUES (club_name, user_id)
+  RETURNING id INTO new_club_id;
+  
+  -- Create user-club association
+  INSERT INTO user_club_roles (user_id, club_id, role, is_primary, permissions)
+  VALUES (
+    user_id,
+    new_club_id,
+    user_role,
+    true,
+    '{"all": true}'::jsonb
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
 ## Testing
-- Valid invitation allows registration
-- Invalid invitation shows error
-- Duplicate email prevented
-- Weak password rejected
-- Email verification required
-- Profile created correctly
-- Club association established
+- New user can register with valid details
+- Duplicate email shows appropriate error
+- Weak password rejected (min 8 chars)
+- Email verification required before access
+- Profile and club created correctly
+- User redirected to dashboard after verification
+- Form validation works properly
 
 ## Security Considerations
-- Rate limit registration attempts
-- Validate invitation hasn't been used
-- Secure password requirements
+- Rate limit registration attempts (5 per hour per IP)
+- Password requirements enforced by Supabase
 - CAPTCHA for public registration (future)
 - Log registration attempts
+- Sanitize club name input
 
 ## Notes
-- Support social login in future sprint
+- Invitation system deferred to Sprint 2
+- Social login in future sprint
 - Add password strength indicator
 - Consider magic link option
 - Track registration analytics

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Youth Soccer AI Platform - A Next.js full-stack application that empowers youth soccer coaches with AI-driven training plans. The project uses a monorepo structure with Turborepo and is deployed on Vercel.
+Youth Soccer AI Platform - A Next.js full-stack application that empowers youth soccer coaches with AI-driven training plans. The project uses a monorepo structure with Turborepo and is deployed using Docker containers orchestrated by Docker Swarm and managed via Portainer.
 
 ## Key Commands
 
@@ -75,6 +75,15 @@ pnpm lint
 
 # Clean all build artifacts
 pnpm clean
+
+# Build Docker image locally
+docker build -t soccer-web:latest .
+
+# Run local development with Docker Compose
+docker-compose -f docker-compose.dev.yml up
+
+# Deploy to production (via GitHub Actions)
+# Merging to main branch triggers automatic deployment
 ```
 
 ## Architecture & Code Structure
@@ -87,7 +96,9 @@ pnpm clean
 - **Authentication**: Supabase Auth with Row Level Security
 - **AI**: OpenAI GPT-4 via n8n workflow orchestration
 - **Testing**: Vitest (unit/integration) + Playwright (E2E)
-- **Deployment**: Vercel with preview deployments
+- **Deployment**: Docker containers with Docker Swarm orchestration
+- **Container Registry**: GitHub Container Registry (ghcr.io)
+- **Management**: Portainer for container orchestration
 
 ### Key Architectural Patterns
 
@@ -154,8 +165,9 @@ pnpm clean
 
 3. **PR Process**:
    - GitHub Actions run all tests automatically
-   - Preview deployment created on Vercel
-   - Tests run against preview deployment
+   - Docker image built and pushed to GitHub Container Registry
+   - Preview deployment created via Portainer API
+   - E2E tests run against preview environment
    - Requires passing tests + type check + lint
 
 ### BMAD Development Method

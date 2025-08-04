@@ -7,10 +7,13 @@ describe('/api/health', () => {
     // Mock Date to have consistent timestamps in tests
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'))
+    // Mock npm_package_version for tests
+    process.env.npm_package_version = '0.1.0'
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    delete process.env.npm_package_version
   })
 
   it('should return health check response', async () => {
@@ -19,9 +22,11 @@ describe('/api/health', () => {
 
     expect(response.status).toBe(200)
     expect(data).toEqual({
-      status: 'ok',
+      status: 'healthy',
       service: 'web',
-      timestamp: '2024-01-01T00:00:00.000Z'
+      timestamp: '2024-01-01T00:00:00.000Z',
+      version: '0.1.0',
+      environment: 'test'
     })
   })
 
@@ -45,14 +50,16 @@ describe('/api/health', () => {
     expect(new Date(data2.timestamp).getTime()).toBeGreaterThan(new Date(data1.timestamp).getTime())
   })
 
-  it('should always return status ok', async () => {
+  it('should always return status healthy', async () => {
     // Test multiple calls to ensure consistency
     for (let i = 0; i < 5; i++) {
       const response = await GET()
       const data = await response.json()
       
-      expect(data.status).toBe('ok')
+      expect(data.status).toBe('healthy')
       expect(data.service).toBe('web')
+      expect(data.version).toBe('0.1.0')
+      expect(data.environment).toBe('test')
     }
   })
 

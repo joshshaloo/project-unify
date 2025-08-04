@@ -8,7 +8,7 @@ import { SignupForm } from './signup-form'
 const mockAction = vi.fn()
 const defaultAction = async (prevState: any, formData: FormData) => {
   mockAction(prevState, formData)
-  return { success: true }
+  return { success: true, message: 'Check your email to complete registration!' }
 }
 
 // Mock Next.js router
@@ -243,7 +243,7 @@ describe('SignupForm', () => {
   it('should have proper accessibility attributes', () => {
     renderWithProviders(<SignupForm action={defaultAction} />)
 
-    const form = screen.getByRole('button', { name: /create account/i }).closest('form')!
+    screen.getByRole('button', { name: /create account/i }).closest('form')!
     const nameInput = screen.getByLabelText(/full name/i)
     const emailInput = screen.getByLabelText(/email address/i)
     const agreeCheckbox = screen.getByLabelText(/i agree to the terms and conditions/i)

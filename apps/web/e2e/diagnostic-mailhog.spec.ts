@@ -130,7 +130,7 @@ test.describe('MailHog Diagnostic Tests', () => {
       })
       console.log(`Test ${testId} found in MailHog: ${!!ourMessage}`)
     } catch (error) {
-      console.log(`Test ${testId} MailHog check failed:`, error.message)
+      console.log(`Test ${testId} MailHog check failed:`, (error as Error).message)
     }
     
     console.log(`=== PARALLEL TEST ${testId} END ===`)

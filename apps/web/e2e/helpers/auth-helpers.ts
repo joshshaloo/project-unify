@@ -256,7 +256,7 @@ export async function clearMailHogEmails(): Promise<void> {
       })
       return response.ok
     } catch (error) {
-      console.log('Failed to clear MailHog emails, retrying...', error.message)
+      console.log('Failed to clear MailHog emails, retrying...', (error as Error).message)
       return false
     }
   }, 3, 1000)
@@ -318,7 +318,7 @@ export async function authenticateWithRealMagicLink(
     await page.goto(magicLink)
     navigationSucceeded = true
   } catch (error) {
-    console.log('Navigation error (expected for redirects):', error.message)
+    console.log('Navigation error (expected for redirects):', (error as Error).message)
     // Navigation errors are common with server-side redirects
     // The page might have already redirected despite the error
   }
@@ -355,7 +355,7 @@ export async function authenticateWithRealMagicLink(
         return true
       }
     } catch (retryError) {
-      console.log('Retry navigation failed:', retryError.message)
+      console.log('Retry navigation failed:', (retryError as Error).message)
     }
   }
   

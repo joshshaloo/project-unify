@@ -1,6 +1,5 @@
 // Server-only functions (not server actions)
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 export async function getSession() {

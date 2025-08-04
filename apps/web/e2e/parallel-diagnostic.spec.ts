@@ -24,7 +24,7 @@ test.describe('Parallel Execution Diagnostic', () => {
       beforeCount = beforeData.items?.length || 0
       console.log(`${testId}: MailHog messages before: ${beforeCount}`)
     } catch (error) {
-      console.log(`${testId}: Error checking MailHog before:`, error.message)
+      console.log(`${testId}: Error checking MailHog before:`, (error as Error).message)
     }
     
     // Navigate and submit
@@ -95,7 +95,7 @@ test.describe('Parallel Execution Diagnostic', () => {
         console.log(`${testId}:   ${idx + 1}. To=${JSON.stringify(toEmails)}, Created=${msg.Created}`)
       })
     } catch (error) {
-      console.log(`${testId}: Error checking MailHog after:`, error.message)
+      console.log(`${testId}: Error checking MailHog after:`, (error as Error).message)
     }
     
     console.log(`=== PARALLEL DIAGNOSTIC ${testId} END ===`)

@@ -104,7 +104,7 @@ export class MailHogHelper {
           return message
         }
       } catch (error) {
-        console.log(`MailHog API error on attempt ${attempt}:`, error.message)
+        console.log(`MailHog API error on attempt ${attempt}:`, (error as Error).message)
       }
       
       // Progressive backoff: start with shorter delays, increase for later attempts

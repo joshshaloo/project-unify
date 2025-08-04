@@ -8,7 +8,7 @@ import { LoginForm } from './login-form'
 const mockAction = vi.fn()
 const defaultAction = async (prevState: any, formData: FormData) => {
   mockAction(prevState, formData)
-  return { success: true }
+  return { success: true, message: 'Check your email for a magic link to sign in!' }
 }
 
 // Mock Next.js router

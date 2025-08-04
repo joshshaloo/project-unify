@@ -45,7 +45,7 @@ export async function waitForCondition(
         return true
       }
     } catch (error) {
-      console.log(`Attempt ${attempt} failed:`, error.message)
+      console.log(`Attempt ${attempt} failed:`, (error as Error).message)
     }
 
     if (attempt < maxAttempts) {
@@ -83,7 +83,7 @@ export async function staggerTestExecution(page: any, baseDelayMs: number = 500)
   try {
     // This is a bit of a hack, but we can use the page context to get some worker info
     const userAgent = await page.evaluate(() => navigator.userAgent)
-    const hash = userAgent.split('').reduce((a, b) => {
+    const hash = userAgent.split('').reduce((a: number, b: string) => {
       a = ((a << 5) - a) + b.charCodeAt(0)
       return a & a
     }, 0)

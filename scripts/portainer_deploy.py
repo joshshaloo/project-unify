@@ -111,16 +111,17 @@ class PortainerClient:
         response.raise_for_status()
         return response.json()
     
-    def update_stack(self, stack_id: int, env_vars: List[Dict], endpoint_id: int = 1) -> Dict:
-        """Update an existing stack (environment variables only)"""
+    def update_stack(self, stack_id: int, stack_content: str, env_vars: List[Dict], endpoint_id: int = 1) -> Dict:
+        """Update an existing stack with new content and environment variables"""
         payload = {
+            'StackFileContent': stack_content,
             'Env': env_vars
         }
         
         # Debug logging
         if os.getenv('DEBUG') == '1':
             print(f"Update stack URL: {self.host}/api/stacks/{stack_id}?endpointId={endpoint_id}")
-            print(f"Update payload: {len(env_vars)} env vars")
+            print(f"Update payload: {len(env_vars)} env vars, {len(stack_content)} bytes content")
         
         response = self.session.put(
             f"{self.host}/api/stacks/{stack_id}?endpointId={endpoint_id}",
@@ -343,10 +344,26 @@ def main():
                 print("❌ Cancelled")
                 sys.exit(1)
         
-        # Update stack (only update IMAGE env var)
+        # Update stack with new image tag
         try:
+            # Load the stack file
+            stack_file = f'docker-stack.{args.environment}.yml'
+            stack_content = load_stack_file(stack_file)
+            
+            # Update IMAGE env var
             env_vars = [{'name': 'IMAGE', 'value': f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'}]
-            client.update_stack(existing_stack['Id'], env_vars)
+            
+            # For production, keep existing SMTP settings
+            if args.environment == 'prod':
+                # These would normally come from existing stack config
+                env_vars.extend([
+                    {'name': 'SMTP_HOST', 'value': 'smtp.example.com'},
+                    {'name': 'SMTP_PORT', 'value': '587'},
+                    {'name': 'SMTP_USER', 'value': 'CHANGE-ME'},
+                    {'name': 'EMAIL_FROM', 'value': 'noreply@app.clubomatic.ai'},
+                ])
+            
+            client.update_stack(existing_stack['Id'], stack_content, env_vars)
             print(f"✅ Deployment successful!")
             print(f"Stack '{stack_name}' updated with image tag: {args.image_tag}")
         except Exception as e:

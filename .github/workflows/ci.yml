@@ -1,9 +1,7 @@
-name: CI/CD Pipeline
+name: CI/CD - Main Branches
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
     branches: [main, develop]
 
 env:
@@ -11,8 +9,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Run all validation steps
   validate:
-    name: Validate
+    name: Validate Code
     runs-on: ubuntu-latest
     
     steps:
@@ -46,7 +45,7 @@ jobs:
       - name: Lint
         run: pnpm lint
         
-      - name: Test
+      - name: Unit Tests
         run: pnpm test
         env:
           CI: true
@@ -54,10 +53,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # Build and push Docker image
   build-and-push:
     needs: validate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     permissions:
       contents: read
       packages: write
@@ -96,10 +95,10 @@ jobs:
           cache-to: type=gha,mode=max
           target: runner
 
+  # Deploy to appropriate environment
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     
     steps:
       - name: Setup Tailscale
@@ -137,10 +136,10 @@ jobs:
             }' \
             ${{ secrets.PORTAINER_HOST }}/api/stacks/soccer-prod?endpointId=1
 
+  # Run E2E tests against deployed environment
   e2e-tests:
     needs: deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     
     steps:
       - uses: actions/checkout@v4

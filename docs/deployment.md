@@ -2,206 +2,157 @@
 
 ## Overview
 
-The Soccer AI Platform uses a comprehensive CI/CD pipeline that:
-- Validates and tests all code changes
-- Builds Docker containers for deployment
-- Deploys to homelab infrastructure via Portainer
-- Manages preview environments for pull requests
+The project uses a streamlined deployment pipeline that:
+- Validates code using the same commands developers use locally
+- Builds Docker containers and pushes to GitHub Container Registry
+- Deploys to homelab infrastructure via Portainer API
+- Provides public access through Cloudflare Tunnel
 
 ## Architecture
 
 ### Container Registry
 - **Registry**: GitHub Container Registry (ghcr.io)
-- **Image**: `ghcr.io/joshshaloo/soccer-project-unify`
+- **Image**: `ghcr.io/joshshaloo/soccer/project-unify`
 - **Tags**:
   - `latest` - Production (main branch)
-  - `develop` - Preview environment
-  - `pr-{number}` - Pull request previews
+  - `develop-{sha}` - Develop branch builds
+  - `pr-{number}-{sha}` - Pull request builds
 
 ### Environments
+
 1. **Production** (`main` branch)
-   - URL: https://soccer-unify.com
+   - URL: https://app.clubomatic.ai
    - Stack: `soccer-prod`
+   - Port: 3010
    
-2. **Preview** (`develop` branch)
-   - URL: https://preview.soccer-unify.com
+2. **Preview** (`develop` branch + all PRs)
+   - URL: https://preview.clubomatic.ai
    - Stack: `soccer-preview`
-   
-3. **PR Previews** (pull requests)
-   - URL: https://pr-{number}.soccer-unify.homelab.internal
-   - Stack: `soccer-pr-{number}`
-   - Publicly accessible (no VPN required)
+   - Port: 3011
+   - Note: Shared environment for all PRs
 
-## CI/CD Workflows
+### Infrastructure
 
-### 1. Main CI Pipeline (`ci.yml`)
-Triggers on:
-- Push to `main` or `develop`
-- Pull requests to `main` or `develop`
-
-Steps:
-1. **Validate** - Type check, lint, unit tests, build
-2. **Build & Push** - Docker image to ghcr.io (only on push)
-3. **Deploy** - To preview/production via Portainer
-4. **E2E Tests** - Run against deployed environment
-
-### 2. PR Homelab Deployment (`deploy-pr-homelab.yml`)
-Triggers on:
-- PR opened/updated/closed
-
-Features:
-- Deploys each PR to isolated environment
-- Automatic cleanup on PR close
-- E2E tests against preview
-- Comments deployment status on PR
-
-### 3. Test Suite (`test.yml`)
-Comprehensive testing including:
-- Unit tests with coverage
-- Integration tests
-- E2E tests with Playwright
-- Build verification
-
-## Required GitHub Secrets
-
-```bash
-# Tailscale (for homelab access)
-TS_OAUTH_CLIENT_ID
-TS_OAUTH_SECRET
-
-# Portainer API
-PORTAINER_API_KEY
-
-# Database
-DATABASE_URL_PREVIEW
-DATABASE_URL_PROD
-DIRECT_URL_PREVIEW
-DIRECT_URL_PROD
-
-# Services
-OPENAI_API_KEY
-N8N_WEBHOOK_URL
-
-# URLs
-PREVIEW_URL
-```
-
-## Setup Instructions
-
-### 1. GitHub Container Registry
-
-Enable GitHub Packages for your repository:
-1. Go to Settings > Actions > General
-2. Under "Workflow permissions", select "Read and write permissions"
-3. Save changes
-
-### 2. Configure Secrets
-
-Add all required secrets to your repository:
-1. Go to Settings > Secrets and variables > Actions
-2. Add each secret listed above
-
-### 3. Portainer Configuration
-
-Ensure Portainer has:
-1. API access enabled (only accessible via Tailscale/VPN)
-2. Stacks configured for `soccer-prod` and `soccer-preview`
-3. Traefik network available for public routing
-4. Proper labels for routing
-
-### 4. Branch Protection
-
-Configure branch protection for `main`:
-```json
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["validate", "build-and-push"]
-  },
-  "enforce_admins": false,
-  "required_pull_request_reviews": {
-    "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true
-  }
-}
-```
+- **Hosting**: Docker Swarm on homelab server (172.20.0.22)
+- **Public Access**: Cloudflare Tunnel (no exposed ports)
+- **Container Management**: Portainer
+- **GitHub Connection**: Tailscale VPN
 
 ## Deployment Flow
 
-### Feature Development
-1. Create feature branch from `main`
-2. Push changes - runs validation only
-3. Open PR - deploys to `pr-{number}.soccer-unify.homelab.internal`
-4. Tests run automatically against PR preview
-5. Merge to `main` after approval
+### Automatic Deployment
 
-### Preview Deployment
-1. Merge to `develop` branch
-2. Automatic deployment to preview environment
-3. E2E tests run against preview
-4. Manual testing at https://preview.soccer-unify.com
+1. **Push to GitHub** → Triggers GitHub Actions
+2. **Validation** → `make validate` runs all checks
+3. **Build & Push** → `make build` and `make push`
+4. **Deploy** → `make deploy-preview` or `make deploy-prod`
+5. **Access** → Via Cloudflare Tunnel URLs
 
-### Production Deployment
-1. Merge `develop` to `main`
-2. Automatic deployment to production
-3. Available at https://soccer-unify.com
+### Manual Deployment
 
-## Monitoring
+```bash
+# Deploy specific version to preview
+make deploy-preview TAG=develop-abc123
 
-### Build Status
-- Check GitHub Actions tab for workflow runs
-- PR comments show deployment status
-- Failed builds block merging
+# Deploy to production (requires confirmation)
+make deploy-prod TAG=v1.2.3
+```
 
-### Container Images
-- View at: https://github.com/joshshaloo/soccer/project-unify/pkgs/container/soccer-project-unify
-- Automatic cleanup after 30 days
+## Required GitHub Secrets
 
-### Application Health
-- Health endpoint: `/api/health`
-- Portainer shows container status
-- Traefik handles routing and SSL
+Only minimal secrets in GitHub (configured in Settings → Secrets):
 
-## Troubleshooting
+```yaml
+# Portainer Access
+PORTAINER_API_KEY    # From Portainer user settings
+PORTAINER_HOST       # https://portainer.homelab.internal:9443
 
-### Failed Deployments
-1. Check GitHub Actions logs
-2. Verify secrets are set correctly
-3. Ensure Tailscale connection is active
-4. Check Portainer API accessibility
+# Tailscale VPN
+TS_OAUTH_CLIENT_ID   # From Tailscale admin console
+TS_OAUTH_SECRET      # From Tailscale admin console
+```
 
-### PR Preview Issues
-1. Check Traefik routing rules
-2. Ensure stack deployed successfully in Portainer
-3. Verify DNS resolution for pr-{number}.soccer-unify.homelab.internal
-4. Review container logs in Portainer (requires VPN access)
-
-### Build Failures
-1. Run tests locally: `pnpm test`
-2. Check type errors: `pnpm typecheck`
-3. Verify Docker builds: `docker build .`
-4. Review workflow logs for specific errors
+All application secrets (database passwords, API keys) are configured in Portainer stack environment variables.
 
 ## Local Development
 
-### Running CI Checks Locally
+Developers use the same commands as CI/CD:
+
 ```bash
-# Run all validation steps
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
+# Start local environment
+make dev
 
-# Build Docker image
-docker build -t soccer-web:local .
+# Run all CI checks before pushing
+make validate
 
-# Run container
-docker run -p 3000:3000 soccer-web:local
+# View available commands
+make help
 ```
 
-### Testing Workflows
-Use [act](https://github.com/nektos/act) to test workflows locally:
+## Cloudflare Tunnel Configuration
+
+Public URLs are routed through Cloudflare Tunnel:
+
+| Service | Public URL | Internal Target |
+|---------|------------|-----------------|
+| Production App | https://app.clubomatic.ai | http://172.20.0.22:3010 |
+| Production n8n | https://n8n.clubomatic.ai | http://172.20.0.22:5680 |
+| Preview App | https://preview.clubomatic.ai | http://172.20.0.22:3011 |
+| Preview n8n | https://preview-n8n.clubomatic.ai | http://172.20.0.22:5681 |
+
+## Troubleshooting
+
+### Build Failures
 ```bash
-act -j validate
-act -j build-and-push --secret-file .env.secrets
+# Test locally with same command CI uses
+make validate
+
+# Check Docker build logs
+docker build --no-cache .
 ```
+
+### Deployment Issues
+```bash
+# Check if Tailscale is connected
+tailscale status
+
+# Verify Portainer API is accessible
+curl -H "X-API-Key: $PORTAINER_API_KEY" $PORTAINER_HOST/api/status
+
+# Check deployed image tag
+docker service ls
+docker service ps soccer-preview_app
+```
+
+### Access Problems
+- Verify Cloudflare Tunnel is active in Cloudflare dashboard
+- Check Docker container is running: `docker ps`
+- Review container logs: `docker logs <container-id>`
+
+## Security Considerations
+
+1. **No Exposed Ports** - All access through Cloudflare Tunnel
+2. **Secrets in Portainer** - Not in code or GitHub
+3. **Private Registry** - Images in GHCR are private by default
+4. **VPN for Management** - Tailscale required for deployments
+
+## Rollback Procedure
+
+To rollback to a previous version:
+
+```bash
+# Find previous image tags
+docker images | grep ghcr.io/joshshaloo/soccer/project-unify
+
+# Deploy specific version
+make deploy-preview TAG=previous-tag
+# or
+make deploy-prod TAG=previous-tag
+```
+
+## Monitoring
+
+- **Container Logs**: Available in Portainer UI
+- **Health Checks**: Built into Docker services
+- **Uptime**: Monitored via Cloudflare
+- **Resource Usage**: Visible in Portainer dashboard

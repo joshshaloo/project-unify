@@ -75,7 +75,7 @@ jobs:
           PORTAINER_HOST: ${{ secrets.PORTAINER_HOST }}
         run: |
           # Deploy to shared preview environment
-          PREVIEW_URL="https://preview.soccer-unify.com"
+          PREVIEW_URL="https://preview.clubomatic.ai"
           
           # Deploy with specific PR image tag
           make deploy-preview TAG=${{ needs.build-and-validate.outputs.image-tag }}

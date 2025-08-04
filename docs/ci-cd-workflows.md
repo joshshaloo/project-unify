@@ -2,143 +2,168 @@
 
 ## Overview
 
-The project uses GitHub Actions for CI/CD with two main workflows:
+The project uses GitHub Actions for CI/CD with a simplified approach where all workflows use the same Make commands that developers use locally. This ensures consistency between local development and CI/CD.
 
-1. **ci.yml** - Handles main branch deployments (main, develop)
-2. **pr.yml** - Handles pull request validation, preview deployments, and cleanup
+### Key Principles
+- **Single Source of Truth**: Makefile defines all commands
+- **Developer-CI Parity**: Same commands work locally and in CI
+- **Docker-Based Validation**: All checks run in Docker for consistency
 
-## Workflow Details
+## Workflows
 
-### CI/CD - Main Branches (`ci.yml`)
+### 1. Main Branch CI/CD (`ci.yml`)
 
 **Triggers:** Push to `main` or `develop` branches
 
-**Jobs:**
-1. **build-and-validate** - Docker multi-stage build that:
-   - Installs dependencies
-   - Generates Prisma types
-   - Runs linting
-   - Runs type checking
-   - Runs unit tests
-   - Runs integration tests
-   - Builds production image
-   - Pushes to GitHub Container Registry
+**Process:**
+1. **Validate** - Runs `make validate` which uses Docker multi-stage build to:
+   - Install dependencies
+   - Generate Prisma types
+   - Run linting
+   - Run type checking
+   - Run unit tests
+   - Run integration tests
 
-2. **deploy** - Deploys to appropriate environment
-   - `develop` → Preview environment
-   - `main` → Production environment
-   - Uses Portainer API via Tailscale VPN
+2. **Build & Push** - Creates production image:
+   - Tags: `latest` (main), `develop-SHA` (develop)
+   - Runs `make build` and `make push`
 
-3. **e2e-tests** - Runs E2E tests against deployed environment
-   - Waits for deployment to be ready
-   - Uses Playwright for browser automation
+3. **Deploy** - Updates appropriate environment:
+   - `develop` → Preview (https://preview.clubomatic.ai)
+   - `main` → Production (https://app.clubomatic.ai)
+   - Uses `make deploy-preview` or `make deploy-prod`
 
-### PR Pipeline (`pr.yml`)
+4. **E2E Tests** - Validates deployment:
+   - Runs Playwright tests against deployed environment
+   - Uploads test results as artifacts
+
+### 2. Pull Request Pipeline (`pr.yml`)
 
 **Triggers:** Pull request events (opened, synchronize, reopened, closed)
 
-**Jobs:**
-1. **build-and-validate** - Docker multi-stage build that:
-   - Runs all validation steps (lint, typecheck, tests)
-   - Builds and validates PR image
-   - Pushes to GitHub Container Registry with PR tags
+**Process:**
+1. **Validate** - Runs `make validate` for all checks
+2. **Build & Push** - Tags as `pr-NUMBER-SHA`
+3. **Deploy Preview** - Updates shared preview environment
+4. **Test Preview** - Runs E2E tests
+5. **Update Status** - Posts results to PR
 
-2. **deploy-pr-preview** - Updates shared preview environment
-   - URL: `https://preview.soccer-unify.com`
-   - Updates preview stack with PR image
-   - Posts preview URL as PR comment
+**Preview URL:** https://preview.clubomatic.ai (shared for all PRs)
 
-3. **test-pr-preview** - Runs E2E tests against preview
-   - Tests the actual deployed preview
-   - Uploads test results as artifacts
+## Required GitHub Secrets
 
-4. **update-pr-status** - Aggregates all check results
-   - Posts summary comment on PR
-   - Shows pass/fail status for each check
+Only minimal secrets needed in GitHub:
 
-5. **cleanup-pr-preview** - Notes PR closure
-   - Preview environment remains available
-   - Posts closure notification
+### Essential Secrets
+- `PORTAINER_API_KEY` - For deployment API calls
+- `PORTAINER_HOST` - Portainer API endpoint
+- `TS_OAUTH_CLIENT_ID` - Tailscale authentication
+- `TS_OAUTH_SECRET` - Tailscale authentication
 
-## Required Secrets
+### Application Secrets
+All application secrets (database passwords, API keys, etc.) are configured in Portainer stack environment variables, not in GitHub. This follows security best practices.
 
-Configure these in GitHub repository settings:
+## Local Commands
 
-- `PORTAINER_API_KEY` - API key for Portainer access
-- `PORTAINER_HOST` - Portainer API URL (e.g., https://portainer.homelab.internal:9443)
-- `TS_OAUTH_CLIENT_ID` - Tailscale OAuth client ID
-- `TS_OAUTH_SECRET` - Tailscale OAuth secret
-- `DATABASE_URL_PREVIEW` - Preview database connection string
-- `NEXTAUTH_SECRET` - NextAuth.js secret
-- `OPENAI_API_KEY` - OpenAI API key
-- `N8N_WEBHOOK_URL` - n8n webhook URL
-- `EMAIL_SERVER_HOST` - Email server host
-- `EMAIL_SERVER_PORT` - Email server port
-- `EMAIL_FROM` - From email address
+Developers use the same commands that CI uses:
+
+```bash
+# Daily development
+make dev        # Start local environment
+make logs       # View logs
+make test       # Run tests in Docker
+
+# Before pushing
+make validate   # Run all CI checks locally
+
+# Manual deployment (usually automatic)
+make deploy-preview TAG=develop-abc123
+make deploy-prod TAG=v1.2.3
+```
+
+## Image Tagging Strategy
+
+Images are tagged with specific identifiers for traceability:
+
+| Branch/Event | Tag Format | Example |
+|--------------|------------|---------|
+| main | latest | `ghcr.io/joshshaloo/soccer/project-unify:latest` |
+| develop | develop-SHA | `ghcr.io/joshshaloo/soccer/project-unify:develop-abc123` |
+| PR | pr-NUMBER-SHA | `ghcr.io/joshshaloo/soccer/project-unify:pr-42-def456` |
+| feature | branch-SHA | `ghcr.io/joshshaloo/soccer/project-unify:feat-auth-ghi789` |
+
+## Deployment Architecture
+
+### Infrastructure
+- **Hosting**: Docker Swarm on home lab
+- **Access**: Cloudflare Tunnel (no exposed ports)
+- **Orchestration**: Portainer for stack management
+- **Connectivity**: Tailscale VPN for GitHub-to-homelab
+
+### Deployment Flow
+1. GitHub Actions builds and validates
+2. Image pushed to GitHub Container Registry
+3. Portainer API called with specific image tag
+4. Docker Swarm pulls and deploys new image
+5. Cloudflare Tunnel provides public access
 
 ## Branch Protection
 
-Recommended branch protection rules for `main`:
+Recommended settings for `main` branch:
 
-- Require PR before merging
-- Require status checks to pass:
-  - `validate`
+- ✅ Require pull request before merging
+- ✅ Require status checks to pass:
+  - `build-and-validate`
   - `test-pr-preview`
-- Require branches to be up to date
-- Require conversation resolution
-- Dismiss stale PR approvals
-
-## Optimization Features
-
-1. **Change Detection** - Only runs tests for changed code
-2. **Docker Layer Caching** - Uses GitHub Actions cache
-3. **Concurrent Jobs** - Validation runs in parallel
-4. **PR Concurrency** - Cancels old runs when PR is updated
-5. **Conditional Steps** - Skips unnecessary work
+- ✅ Require branches to be up to date
+- ✅ Require conversation resolution
+- ✅ Dismiss stale PR approvals
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Docker build fails**
-   - Check Dockerfile syntax
-   - Verify all dependencies are available
-   - Check Docker build logs in GitHub Actions
+**Validation fails locally but passes in CI**
+- Ensure you're using `make validate` not running commands directly
+- Check Docker is running and up to date
 
-2. **Deployment fails**
-   - Verify Tailscale connection
-   - Check Portainer API key
-   - Ensure stack names are unique
+**Deployment fails**
+- Verify Tailscale connection is active
+- Check Portainer API key hasn't expired
+- Ensure image tag was pushed successfully
 
-3. **E2E tests fail**
-   - Check preview URL accessibility
-   - Verify test selectors match current UI
-   - Review Playwright trace files
+**E2E tests fail**
+- Check preview URL is accessible
+- Review Playwright screenshots in artifacts
+- Verify database migrations ran
 
-### Debugging Commands
+### Useful Commands
 
 ```bash
-# Check workflow runs
+# Check GitHub Actions status
 gh run list
-
-# View specific run details
 gh run view <run-id>
 
-# Download artifacts
-gh run download <run-id>
+# Test locally exactly as CI does
+make validate
 
-# Re-run failed jobs
-gh run rerun <run-id> --failed
+# Check what image tags exist
+docker images | grep ghcr.io/joshshaloo
+
+# Manual deployment (if needed)
+make deploy-preview TAG=specific-tag
 ```
 
-## Local Testing
+## Performance Optimizations
 
-Test workflows locally using [act](https://github.com/nektos/act):
+1. **Docker Layer Caching** - GitHub Actions cache speeds rebuilds
+2. **Concurrent Validation** - Tests run in parallel where possible
+3. **Smart Concurrency** - Old PR builds cancelled when updated
+4. **Shared Preview** - One environment for all PRs saves resources
 
-```bash
-# Test PR workflow
-act pull_request -W .github/workflows/pr.yml
+## Security Notes
 
-# Test CI workflow
-act push -W .github/workflows/ci.yml
-```
+- GitHub only has deployment keys, not application secrets
+- All sensitive configuration in Portainer
+- Images are private by default in GHCR
+- Tailscale provides secure tunnel without exposed ports

@@ -108,7 +108,7 @@ jobs:
         run: pnpm test:e2e --project=chromium
         working-directory: apps/web
         env:
-          PLAYWRIGHT_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://soccer-unify.com' || 'https://preview.soccer-unify.com' }}
+          PLAYWRIGHT_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://app.clubomatic.ai' || 'https://preview.clubomatic.ai' }}
       
       - name: Upload test results
         uses: actions/upload-artifact@v4

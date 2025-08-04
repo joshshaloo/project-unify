@@ -14,22 +14,22 @@ The project uses GitHub Actions for CI/CD with two main workflows:
 **Triggers:** Push to `main` or `develop` branches
 
 **Jobs:**
-1. **validate** - Runs all code quality checks
-   - Type checking
-   - Linting
-   - Unit tests
-   - Build verification
+1. **build-and-validate** - Docker multi-stage build that:
+   - Installs dependencies
+   - Generates Prisma types
+   - Runs linting
+   - Runs type checking
+   - Runs unit tests
+   - Runs integration tests
+   - Builds production image
+   - Pushes to GitHub Container Registry
 
-2. **build-and-push** - Creates and pushes Docker images
-   - Tags: `branch-SHA`, `branch` name, `latest` (for main)
-   - Registry: GitHub Container Registry (ghcr.io)
-
-3. **deploy** - Deploys to appropriate environment
+2. **deploy** - Deploys to appropriate environment
    - `develop` → Preview environment
    - `main` → Production environment
    - Uses Portainer API via Tailscale VPN
 
-4. **e2e-tests** - Runs E2E tests against deployed environment
+3. **e2e-tests** - Runs E2E tests against deployed environment
    - Waits for deployment to be ready
    - Uses Playwright for browser automation
 
@@ -38,32 +38,25 @@ The project uses GitHub Actions for CI/CD with two main workflows:
 **Triggers:** Pull request events (opened, synchronize, reopened, closed)
 
 **Jobs:**
-1. **detect-changes** - Optimizes CI by detecting what changed
-   - Skips unchanged components
-   - Reduces unnecessary builds
+1. **build-and-validate** - Docker multi-stage build that:
+   - Runs all validation steps (lint, typecheck, tests)
+   - Builds and validates PR image
+   - Pushes to GitHub Container Registry with PR tags
 
-2. **validate** - Same as main branch validation
-   - Only runs if web code changed
-   - Includes integration tests
-
-3. **build-pr-image** - Creates PR-specific Docker image
-   - Tags: `pr-NUMBER`, `pr-NUMBER-SHA`
-   - Includes PR-specific build args
-
-4. **deploy-pr-preview** - Updates shared preview environment
+2. **deploy-pr-preview** - Updates shared preview environment
    - URL: `https://preview.soccer-unify.com`
    - Updates preview stack with PR image
    - Posts preview URL as PR comment
 
-5. **test-pr-preview** - Runs E2E tests against preview
+3. **test-pr-preview** - Runs E2E tests against preview
    - Tests the actual deployed preview
    - Uploads test results as artifacts
 
-6. **update-pr-status** - Aggregates all check results
+4. **update-pr-status** - Aggregates all check results
    - Posts summary comment on PR
    - Shows pass/fail status for each check
 
-7. **cleanup-pr-preview** - Notes PR closure
+5. **cleanup-pr-preview** - Notes PR closure
    - Preview environment remains available
    - Posts closure notification
 

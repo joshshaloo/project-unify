@@ -14,95 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Detect what changed to optimize CI time
-  detect-changes:
-    if: github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    outputs:
-      web-changed: ${{ steps.changes.outputs.web }}
-      docs-changed: ${{ steps.changes.outputs.docs }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Detect changes
-        uses: dorny/paths-filter@v2
-        id: changes
-        with:
-          filters: |
-            web:
-              - 'apps/web/**'
-              - 'packages/**'
-              - 'pnpm-lock.yaml'
-              - 'package.json'
-              - 'Dockerfile'
-              - '.github/workflows/**'
-            docs:
-              - '**/*.md'
-              - 'docs/**'
-
-  # Run all validation steps for PRs
-  validate:
-    needs: detect-changes
-    if: github.event.action != 'closed' && needs.detect-changes.outputs.web-changed == 'true'
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8.15.1
-          
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-          
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
-      - name: Generate Prisma types
-        run: |
-          cd apps/web
-          pnpm prisma generate
-        
-      - name: Type Check
-        run: pnpm typecheck
-        
-      - name: Lint
-        run: |
-          # Run lint for all packages except web
-          pnpm --filter="!@soccer/web" lint
-          # Run web lint with max warnings allowed
-          pnpm --filter @soccer/web lint:ci
-        
-      - name: Unit Tests
-        run: pnpm test
-        env:
-          CI: true
-          
-      - name: Integration Tests
-        run: pnpm test:integration
-        working-directory: apps/web
-        env:
-          CI: true
-        
-      - name: Build
-        run: pnpm build
-        env:
-          DATABASE_URL: "postgresql://postgres:password@localhost:5432/test"
-          NEXTAUTH_SECRET: "test-secret-for-build-only"
-          NEXTAUTH_URL: "http://localhost:3000"
-
-  # Build and push PR-specific Docker image
-  build-pr-image:
-    needs: validate
+  # Build and validate everything through Docker
+  build-and-validate:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
@@ -133,7 +46,23 @@ jobs:
             type=ref,event=pr,prefix=pr-
             type=sha,prefix=pr-${{ github.event.pull_request.number }}-
       
-      - name: Build and push Docker image
+      - name: Build and validate with Docker
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: tester  # This runs all tests in the multi-stage build
+          build-args: |
+            DATABASE_URL=postgresql://postgres:password@localhost:5432/test
+            NEXTAUTH_SECRET=test-secret-for-build-only
+            NEXTAUTH_URL=http://localhost:3000
+      
+      - name: Build production image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -142,13 +71,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          target: runner
+          target: runner  # Production stage
           build-args: |
-            NEXT_PUBLIC_APP_URL=https://pr-${{ github.event.pull_request.number }}.preview.soccer-unify.com
+            NEXT_PUBLIC_APP_URL=https://preview.soccer-unify.com
 
   # Deploy PR preview
   deploy-pr-preview:
-    needs: build-pr-image
+    needs: build-and-validate
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     outputs:
@@ -285,7 +214,7 @@ jobs:
 
   # Update PR status with all check results
   update-pr-status:
-    needs: [validate, test-pr-preview]
+    needs: [build-and-validate, test-pr-preview]
     if: always() && github.event.action != 'closed'
     runs-on: ubuntu-latest
     
@@ -294,20 +223,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const validateResult = '${{ needs.validate.result }}';
+            const buildResult = '${{ needs.build-and-validate.result }}';
             const e2eResult = '${{ needs.test-pr-preview.result }}';
             
             let statusEmoji = '✅';
             let statusText = 'All checks passed!';
             
-            if (validateResult === 'failure' || e2eResult === 'failure') {
+            if (buildResult === 'failure' || e2eResult === 'failure') {
               statusEmoji = '❌';
               statusText = 'Some checks failed';
             }
             
             const body = `## ${statusEmoji} PR Status Update
             
-            **Validation:** ${validateResult === 'success' ? '✅ Passed' : '❌ Failed'}
+            **Build & Validation:** ${buildResult === 'success' ? '✅ Passed' : '❌ Failed'}
             **E2E Tests:** ${e2eResult === 'success' ? '✅ Passed' : '❌ Failed'}
             
             ${statusText}`;

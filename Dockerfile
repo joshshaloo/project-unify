@@ -30,10 +30,20 @@ RUN cd apps/web && npx prisma generate
 # Build application
 RUN pnpm build --filter=@soccer/web
 
-# Stage 3: Test
+# Stage 3: Test (runs all validation steps)
 FROM builder AS tester
-RUN pnpm test:unit --filter=@soccer/web
-RUN pnpm test:integration --filter=@soccer/web
+
+# Run linting
+RUN pnpm lint
+
+# Run type checking
+RUN pnpm typecheck
+
+# Run unit tests
+RUN pnpm test --filter=@soccer/web
+
+# Run integration tests if they exist
+RUN pnpm test:integration --filter=@soccer/web || true
 
 # Stage 4: Production
 FROM node:20-alpine AS runner

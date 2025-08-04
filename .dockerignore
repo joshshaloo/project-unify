@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Next.js
+.next
+.next-*
+out
+dist
+
+# Test
+coverage
+.nyc_output
+test-results
+playwright-report
+e2e
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Docs
+*.md
+docs
+LICENSE
+
+# Misc
+.turbo
+.vercel
+*.log
+tmp
+temp

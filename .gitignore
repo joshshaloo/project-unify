@@ -6,6 +6,10 @@ node_modules
 # Testing
 coverage
 .nyc_output
+test-results/
+test-results.json
+playwright-report/
+.last-run.json
 
 # Next.js
 .next/
@@ -46,6 +50,9 @@ yarn-error.log*
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea
+
+# Claude settings
+.claude/settings.local.json
 
 # OS
 .DS_Store

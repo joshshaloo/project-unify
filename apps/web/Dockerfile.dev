@@ -1,0 +1,39 @@
+# Development Dockerfile with hot reload support
+FROM node:20-alpine
+
+# Install dependencies required for Prisma
+RUN apk add --no-cache openssl openssl-dev
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Set working directory to match monorepo structure
+WORKDIR /workspace
+
+# Copy workspace configuration files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json ./
+
+# Copy all package.json files to preserve workspace structure
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/config/package.json ./packages/config/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy shared packages (for build)
+COPY packages ./packages
+
+# Copy app source
+COPY apps/web ./apps/web
+
+# Generate Prisma client
+WORKDIR /workspace/apps/web
+RUN pnpm prisma generate
+
+# Expose port
+EXPOSE 3001
+
+# Start development server with hot reload
+CMD ["pnpm", "dev"]

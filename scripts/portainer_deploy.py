@@ -467,17 +467,10 @@ def main():
             has_n8n_password = 'N8N_DB_PASSWORD' in env_dict or 'DB_POSTGRESDB_PASSWORD' in env_dict
             
             if not has_n8n_password:
-                print(f"⚠️  WARNING: N8N_DB_PASSWORD is not set in the stack!")
-                print(f"   n8n may fail to start without this password.")
-                print(f"   To set it: Portainer > Stacks > {stack_name} > Edit > Add N8N_DB_PASSWORD")
+                print(f"⚠️  WARNING: No n8n database password found!")
+                print(f"   n8n may fail to start without N8N_DB_PASSWORD or DB_POSTGRESDB_PASSWORD.")
+                print(f"   To set it: Portainer > Stacks > {stack_name} > Edit")
                 # Don't fail - just warn
-            
-            # If user has DB_POSTGRESDB_PASSWORD but not N8N_DB_PASSWORD, keep both
-            # This preserves backwards compatibility
-            if 'DB_POSTGRESDB_PASSWORD' in env_dict and 'N8N_DB_PASSWORD' not in env_dict:
-                # Copy the value to N8N_DB_PASSWORD but keep DB_POSTGRESDB_PASSWORD
-                env_dict['N8N_DB_PASSWORD'] = env_dict['DB_POSTGRESDB_PASSWORD']
-                print(f"📝 Using DB_POSTGRESDB_PASSWORD value for N8N_DB_PASSWORD")
             
             # For production, ensure SMTP settings are present
             if args.environment == 'prod':

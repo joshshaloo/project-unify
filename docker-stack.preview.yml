@@ -153,3 +153,8 @@ services:
       placement:
         constraints:
           - node.role == manager
+
+networks:
+  default:
+    driver: overlay
+    attachable: true

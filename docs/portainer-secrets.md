@@ -22,13 +22,27 @@ Previously, we had hardcoded passwords in the docker-stack files. Now all passwo
 
 ## Environment Variables to SET in Portainer:
 
-When deploying the stack, set these environment variables:
+**CRITICAL**: These environment variables MUST be set when deploying the stack, otherwise n8n will fail to start!
+
+### How to set environment variables in Portainer:
+1. Go to Stacks > soccer-preview (or soccer-prod)
+2. Click "Edit this stack"
+3. Scroll down to "Environment variables" section
+4. Click "Add an environment variable"
+5. Set Name and Value as shown below
+6. Click "Update the stack"
 
 ### Preview Environment:
-- **N8N_DB_PASSWORD** - Password for the `n8nuser` database user
+- **N8N_DB_PASSWORD** 
+  - Purpose: Password for the `n8nuser` database user
+  - Example value: `Kj8#mN2pQ!xR4vT7`
+  - **Required**: Without this, n8n will fail with "client password must be a string" error
 
 ### Production Environment:
-- **N8N_DB_PASSWORD** - Password for the `n8nuser` database user
+- **N8N_DB_PASSWORD**
+  - Purpose: Password for the `n8nuser` database user  
+  - Example value: `Hy7$tK9nW@zP3qL6`
+  - **Required**: Without this, n8n will fail with "client password must be a string" error
 
 ## Secrets to REMOVE from Portainer:
 

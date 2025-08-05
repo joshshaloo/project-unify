@@ -157,7 +157,9 @@
       "Bash(ghcr.io/joshshaloo/soccer/project-unify:f8a657b )",
       "Bash(ghcr.io/joshshaloo/soccer/project-unify:23f2a7f )",
       "Bash(DEBUG=1 python3 scripts/portainer_deploy.py deploy preview 55c39cc --no-wait)",
-      "Bash(ssh docker@172.20.0.22:*)"
+      "Bash(ssh docker@172.20.0.22:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:password@172.20.0.22:5435/soccer\" pnpm prisma migrate deploy)",
+      "Bash(pnpm prisma migrate resolve:*)"
     ],
     "deny": []
   },

@@ -12,9 +12,13 @@ if [ -f /run/secrets/postgres_password ]; then
     export POSTGRES_PASSWORD=$(cat /run/secrets/postgres_password)
     export DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/soccer"
     export DIRECT_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/soccer"
-    echo "[ENTRYPOINT]    Database URL configured"
+    echo "[ENTRYPOINT]    Database URL configured (pointing to postgres:5432)"
 else
     echo "[ENTRYPOINT]    No postgres_password secret found, using environment variables"
+    # If DATABASE_URL is not set, try to use default for local testing
+    if [ -z "$DATABASE_URL" ]; then
+        echo "[ENTRYPOINT]    WARNING: DATABASE_URL not set!"
+    fi
 fi
 
 if [ -f /run/secrets/nextauth_secret ]; then

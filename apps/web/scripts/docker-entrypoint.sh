@@ -50,6 +50,11 @@ echo "[ENTRYPOINT]    NEXTAUTH_URL=${NEXTAUTH_URL}"
 echo "[ENTRYPOINT]    DATABASE_URL is $([ -n "$DATABASE_URL" ] && echo "set" || echo "not set")"
 echo "[ENTRYPOINT]    DIRECT_URL is $([ -n "$DIRECT_URL" ] && echo "set" || echo "not set")"
 echo "[ENTRYPOINT]    NEXTAUTH_SECRET is $([ -n "$NEXTAUTH_SECRET" ] && echo "set" || echo "not set")"
+echo "[ENTRYPOINT]    EMAIL_SERVER_HOST=${EMAIL_SERVER_HOST}"
+echo "[ENTRYPOINT]    EMAIL_SERVER_PORT=${EMAIL_SERVER_PORT}"
+echo "[ENTRYPOINT]    EMAIL_SERVER_USER is $([ -n "$EMAIL_SERVER_USER" ] && echo "set" || echo "not set")"
+echo "[ENTRYPOINT]    EMAIL_SERVER_PASSWORD is $([ -n "$EMAIL_SERVER_PASSWORD" ] && echo "set" || echo "not set")"
+echo "[ENTRYPOINT]    EMAIL_FROM=${EMAIL_FROM}"
 
 # Execute the original start script
 echo "[ENTRYPOINT] 🚀 Starting application..."

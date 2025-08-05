@@ -75,16 +75,23 @@ services:
       - postgres_password
     command: >
       sh -c '
-      echo "Waiting 10 seconds for postgres to start...";
-      sleep 10;
+      echo "Waiting 20 seconds for postgres to start...";
+      sleep 20;
       export PGPASSWORD=$$(cat /run/secrets/postgres_password) &&
-      until pg_isready -h postgres -U postgres; do
+      echo "Testing connection to postgres...";
+      until pg_isready -h postgres -U postgres -p 5432; do
         echo "Waiting for postgres...";
-        sleep 2;
+        sleep 5;
       done;
       echo "Creating n8n database if it doesn'\''t exist...";
-      psql -h postgres -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '\''n8n'\''" | grep -q 1 || psql -h postgres -U postgres -c "CREATE DATABASE n8n;";
+      if psql -h postgres -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '\''n8n'\''" | grep -q 1; then
+        echo "Database n8n already exists";
+      else
+        echo "Creating database n8n...";
+        psql -h postgres -U postgres -c "CREATE DATABASE n8n;" || echo "Failed to create database";
+      fi;
       echo "Database initialization complete";
+      exit 0;
       '
     deploy:
       restart_policy:
@@ -127,11 +134,16 @@ services:
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_DATABASE=n8n
       - DB_POSTGRESDB_USER=postgres
-      - N8N_BASIC_AUTH_PASSWORD_FILE=/run/secrets/n8n_password
-      - DB_POSTGRESDB_PASSWORD_FILE=/run/secrets/postgres_password
+      - DB_POSTGRESDB_PORT=5432
     secrets:
       - n8n_password
       - postgres_password
+    entrypoint: >
+      sh -c '
+      export N8N_BASIC_AUTH_PASSWORD=$$(cat /run/secrets/n8n_password) &&
+      export DB_POSTGRESDB_PASSWORD=$$(cat /run/secrets/postgres_password) &&
+      /usr/local/bin/n8n
+      '
     depends_on:
       - postgres
     volumes:

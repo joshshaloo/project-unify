@@ -122,11 +122,10 @@ services:
 
   n8n:
     image: n8nio/n8n:stable
-    command: |
-      sh -c '
-      export DB_POSTGRESDB_PASSWORD=$$(cat /run/secrets/postgres_password);
-      exec n8n
-      '
+    command:
+      - sh
+      - -c
+      - 'export DB_POSTGRESDB_PASSWORD=$$(cat /run/secrets/postgres_password) && exec n8n'
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres

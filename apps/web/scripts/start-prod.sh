@@ -24,8 +24,8 @@ echo "[START-PROD]    DIRECT_URL is $([ -n "$DIRECT_URL" ] && echo "set" || echo
 # Run database migrations (don't use set -e so we can handle errors gracefully)
 echo "[START-PROD] 📦 Running database migrations..."
 if [ -n "$DATABASE_URL" ]; then
-    # Try to run migrations using npx
-    if npx prisma migrate deploy 2>&1; then
+    # Try to run migrations using node to execute prisma directly
+    if node node_modules/prisma/build/index.js migrate deploy 2>&1; then
         echo "[START-PROD] ✅ Migrations completed successfully"
     else
         MIGRATION_EXIT_CODE=$?

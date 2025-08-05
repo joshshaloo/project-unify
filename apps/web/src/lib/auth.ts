@@ -12,7 +12,14 @@ export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     Nodemailer({
-      server: `smtp://${process.env.EMAIL_SERVER_HOST || "mailhog"}:${process.env.EMAIL_SERVER_PORT || 1025}`,
+      server: {
+        host: process.env.EMAIL_SERVER_HOST || "mailhog",
+        port: parseInt(process.env.EMAIL_SERVER_PORT || "1025"),
+        auth: process.env.EMAIL_SERVER_USER ? {
+          user: process.env.EMAIL_SERVER_USER,
+          pass: process.env.EMAIL_SERVER_PASSWORD,
+        } : undefined,
+      },
       from: process.env.EMAIL_FROM || "noreply@soccer-unify.local",
     }),
   ],

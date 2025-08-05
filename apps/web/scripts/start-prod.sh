@@ -21,6 +21,17 @@ echo "[START-PROD] Environment check:"
 echo "[START-PROD]    DATABASE_URL is $([ -n "$DATABASE_URL" ] && echo "set" || echo "not set")"
 echo "[START-PROD]    DIRECT_URL is $([ -n "$DIRECT_URL" ] && echo "set" || echo "not set")"
 
+# Wait for database to be ready
+echo "[START-PROD] 🔄 Waiting for database to be ready..."
+for i in {1..30}; do
+    if pg_isready -h postgres -p 5432 -U postgres 2>/dev/null; then
+        echo "[START-PROD] ✅ Database is ready!"
+        break
+    fi
+    echo "[START-PROD]    Waiting for database... ($i/30)"
+    sleep 2
+done
+
 # Run database migrations (don't use set -e so we can handle errors gracefully)
 echo "[START-PROD] 📦 Running database migrations..."
 if [ -n "$DATABASE_URL" ]; then

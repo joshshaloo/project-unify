@@ -14,6 +14,8 @@ if [ -f /run/secrets/app_db_password ]; then
     export DATABASE_URL="postgresql://appuser:${APP_DB_PASSWORD}@postgres:5432/soccer"
     export DIRECT_URL="postgresql://appuser:${APP_DB_PASSWORD}@postgres:5432/soccer"
     echo "[ENTRYPOINT]    Database URL configured (using appuser)"
+    # Debug: Show connection string structure (without password)
+    echo "[ENTRYPOINT]    DATABASE_URL format: postgresql://appuser:***@postgres:5432/soccer"
 elif [ -f /run/secrets/postgres_password ]; then
     echo "[ENTRYPOINT]    Loading PostgreSQL password from secret..."
     export POSTGRES_PASSWORD=$(cat /run/secrets/postgres_password)

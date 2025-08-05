@@ -127,8 +127,6 @@ services:
       - WEBHOOK_URL=https://preview-n8n.clubomatic.ai/
     depends_on:
       - postgres
-    volumes:
-      - /mnt/truenas/docker_volumes/project-unity/preview/n8n:/home/node/.n8n
     ports:
       - "5681:5678"
     healthcheck:

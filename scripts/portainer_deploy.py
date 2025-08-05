@@ -12,6 +12,7 @@ import requests
 import yaml
 import secrets
 import string
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict, List, Optional
@@ -144,6 +145,104 @@ class PortainerClient:
         response = self.session.delete(f"{self.host}/api/stacks/{stack_id}")
         return response.status_code == 204
     
+    def get_stack_services(self, stack_name: str, endpoint_id: int = 1) -> List[Dict]:
+        """Get services for a stack"""
+        # Get all services
+        response = self.session.get(f"{self.host}/api/endpoints/{endpoint_id}/docker/services")
+        if response.status_code != 200:
+            return []
+        
+        services = response.json()
+        # Filter by stack name (services are named like "stackname_servicename")
+        stack_services = [s for s in services if s.get('Spec', {}).get('Labels', {}).get('com.docker.stack.namespace') == stack_name]
+        return stack_services
+    
+    def get_service_tasks(self, service_id: str, endpoint_id: int = 1) -> List[Dict]:
+        """Get tasks (containers) for a service"""
+        response = self.session.get(f"{self.host}/api/endpoints/{endpoint_id}/docker/tasks")
+        if response.status_code != 200:
+            return []
+        
+        tasks = response.json()
+        # Filter by service ID
+        service_tasks = [t for t in tasks if t.get('ServiceID') == service_id]
+        return service_tasks
+    
+    def wait_for_services_ready(self, stack_name: str, timeout: int = 300, endpoint_id: int = 1) -> bool:
+        """Wait for all services in a stack to be ready"""
+        start_time = time.time()
+        
+        print(f"⏳ Waiting for services to be ready...")
+        
+        initial_wait = 10  # Give services time to appear
+        print(f"⏳ Waiting {initial_wait} seconds for services to initialize...")
+        time.sleep(initial_wait)
+        
+        while time.time() - start_time < timeout:
+            services = self.get_stack_services(stack_name, endpoint_id)
+            
+            if not services:
+                print(f"⚠️  No services found for stack {stack_name} (retrying...)")
+                time.sleep(5)
+                continue
+            
+            all_ready = True
+            service_status = []
+            
+            for service in services:
+                service_name = service.get('Spec', {}).get('Name', 'unknown')
+                service_id = service.get('ID')
+                
+                # Skip one-shot/init services - they don't need to stay running
+                if 'init' in service_name.lower():
+                    if os.getenv('DEBUG') == '1':
+                        print(f"[DEBUG] Skipping one-shot service: {service_name}")
+                    continue
+                
+                replicas = service.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 1)
+                
+                # Get tasks for this service
+                tasks = self.get_service_tasks(service_id, endpoint_id)
+                running_tasks = [t for t in tasks if t.get('Status', {}).get('State') == 'running']
+                
+                # Debug logging for service status
+                if os.getenv('DEBUG') == '1':
+                    print(f"\n[DEBUG] Service {service_name}: {len(tasks)} total tasks")
+                    for task in tasks:
+                        state = task.get('Status', {}).get('State', 'unknown')
+                        message = task.get('Status', {}).get('Message', '')
+                        print(f"[DEBUG]   Task {task.get('ID', 'unknown')[:8]}: {state} - {message}")
+                
+                # Check if we have enough running tasks
+                is_ready = len(running_tasks) >= replicas
+                
+                if not is_ready:
+                    all_ready = False
+                
+                status_icon = "✅" if is_ready else "⏳"
+                service_status.append(f"  {status_icon} {service_name}: {len(running_tasks)}/{replicas} running")
+            
+            # Clear previous lines and print current status
+            if service_status:  # Only clear if we have status to show
+                # Use \r to return to start of line instead of moving cursor up
+                status_lines = [f"⏳ Service status ({int(time.time() - start_time)}s):"] + service_status
+                
+                # Clear the terminal area
+                print("\033[2K" + "\033[F" * len(status_lines), end="")
+                
+                # Print the status
+                for line in status_lines:
+                    print(line)
+            
+            if all_ready:
+                print(f"\n✅ All services are ready!")
+                return True
+            
+            time.sleep(5)
+        
+        print(f"\n⚠️  Timeout waiting for services to be ready")
+        return False
+    
     def create_secret(self, name: str, data: str, endpoint_id: int = 1) -> Dict:
         """Create a Docker secret"""
         import base64
@@ -229,6 +328,8 @@ def main():
                         help='Docker image tag to deploy')
     parser.add_argument('--force', action='store_true',
                         help='Force operation without confirmation')
+    parser.add_argument('--no-wait', action='store_true',
+                        help='Do not wait for services to be ready after deployment')
     
     args = parser.parse_args()
     
@@ -364,8 +465,19 @@ def main():
                 ])
             
             client.update_stack(existing_stack['Id'], stack_content, env_vars)
-            print(f"✅ Deployment successful!")
-            print(f"Stack '{stack_name}' updated with image tag: {args.image_tag}")
+            print(f"✅ Stack update initiated!")
+            print(f"Stack '{stack_name}' updating with image tag: {args.image_tag}")
+            
+            # Wait for services to be ready unless --no-wait is specified
+            if not args.no_wait:
+                if client.wait_for_services_ready(stack_name, timeout=300):
+                    print(f"\n🎉 Deployment complete!")
+                    print(f"All services in '{stack_name}' are running with image tag: {args.image_tag}")
+                else:
+                    print(f"\n⚠️  Services may not be fully ready. Check Portainer for details.")
+                    sys.exit(1)
+            else:
+                print(f"\n✅ Deployment initiated! Use 'make status' to check service status.")
         except Exception as e:
             print(f"❌ Failed to deploy: {e}")
             sys.exit(1)

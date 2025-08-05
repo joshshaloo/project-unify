@@ -110,12 +110,12 @@ make seed
 
 #### Production (https://app.clubomatic.ai)
 - App: Port 3010
-- n8n: Port 5680 (https://n8n.clubomatic.ai)
+- n8n: Port 5680 (Tailnet only - http://172.20.0.22:5680)
 - PostgreSQL: Port 5434 (Tailnet only)
 
 #### Preview (https://preview.clubomatic.ai)
 - App: Port 3011
-- n8n: Port 5681 (https://preview-n8n.clubomatic.ai)
+- n8n: Port 5681 (Tailnet only - http://172.20.0.22:5681)
 - PostgreSQL: Port 5435 (Tailnet only)
 - MailHog: Port 8125 (Tailnet only)
 

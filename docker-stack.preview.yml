@@ -133,13 +133,23 @@ services:
       - n8n_password
       - postgres_password
     depends_on:
-      - postgres-init
+      - postgres
     volumes:
       - /mnt/truenas/docker_volumes/project-unity/preview/n8n:/home/node/.n8n
     ports:
-      - "5681:5678"
+      - "172.20.0.22:5681:5678"  # Bind only to tailnet interface
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     deploy:
       replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 5
       placement:
         constraints:
           - node.role == worker

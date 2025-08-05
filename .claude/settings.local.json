@@ -160,7 +160,8 @@
       "Bash(ssh docker@172.20.0.22:*)",
       "Bash(DATABASE_URL=\"postgresql://postgres:password@172.20.0.22:5435/soccer\" pnpm prisma migrate deploy)",
       "Bash(pnpm prisma migrate resolve:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(PGPASSWORD=password psql:*)"
     ],
     "deny": []
   },

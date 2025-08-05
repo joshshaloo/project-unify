@@ -33,28 +33,28 @@ TAG ?= $(GIT_SHA)
 ## help: Show available commands
 .PHONY: help
 help:
-	@echo ""
-	@echo "$(BOLD)$(CYAN)⚽ Soccer Project Unify$(NC)"
-	@echo "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
-	@echo ""
-	@echo "$(BOLD)Daily Development$(NC)"
-	@echo "  $(GREEN)make dev$(NC)            - Start everything locally"
-	@echo "  $(GREEN)make stop$(NC)           - Stop everything"
-	@echo "  $(GREEN)make logs$(NC)           - View logs (use s=service for specific)"
-	@echo "  $(GREEN)make test$(NC)           - Run tests in Docker"
-	@echo ""
-	@echo "$(BOLD)Before Pushing Code$(NC)"
-	@echo "  $(GREEN)make validate$(NC)       - Run all CI checks locally"
-	@echo ""
-	@echo "$(BOLD)Utilities$(NC)"
-	@echo "  $(GREEN)make db$(NC)             - Connect to database"
-	@echo "  $(GREEN)make shell$(NC)          - Enter container shell"
-	@echo "  $(GREEN)make clean$(NC)          - Clean up resources"
-	@echo ""
-	@echo "$(BOLD)Deployment (Usually Automatic)$(NC)"
-	@echo "  $(GREEN)make deploy-preview$(NC) - Deploy to preview (needs TAG=...)"
-	@echo "  $(GREEN)make deploy-prod$(NC)    - Deploy to production (needs TAG=...)"
-	@echo ""
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)$(CYAN)⚽ Soccer Project Unify$(NC)\n"
+	@$(PRINT) "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Daily Development$(NC)\n"
+	@$(PRINT) "  $(GREEN)make dev$(NC)            - Start everything locally\n"
+	@$(PRINT) "  $(GREEN)make stop$(NC)           - Stop everything\n"
+	@$(PRINT) "  $(GREEN)make logs$(NC)           - View logs (use s=service for specific)\n"
+	@$(PRINT) "  $(GREEN)make test$(NC)           - Run tests in Docker\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Before Pushing Code$(NC)\n"
+	@$(PRINT) "  $(GREEN)make validate$(NC)       - Run all CI checks locally\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Utilities$(NC)\n"
+	@$(PRINT) "  $(GREEN)make db$(NC)             - Connect to database\n"
+	@$(PRINT) "  $(GREEN)make shell$(NC)          - Enter container shell\n"
+	@$(PRINT) "  $(GREEN)make clean$(NC)          - Clean up resources\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Deployment (Usually Automatic)$(NC)\n"
+	@$(PRINT) "  $(GREEN)make deploy-preview$(NC) - Deploy to preview (needs TAG=...)\n"
+	@$(PRINT) "  $(GREEN)make deploy-prod$(NC)    - Deploy to production (needs TAG=...)\n"
+	@$(PRINT) "\n"
 
 #
 # 🚀 Daily Development
@@ -63,24 +63,24 @@ help:
 ## dev: Start everything locally
 .PHONY: dev
 dev:
-	@echo "$(CYAN)🚀 Starting development environment...$(NC)"
+	@$(PRINT) "$(CYAN)🚀 Starting development environment...$(NC)\n"
 	@docker compose -f docker-compose.dev.yml up -d --build
-	@echo ""
-	@echo "$(GREEN)✓ Development environment started!$(NC)"
-	@echo ""
-	@echo "$(CYAN)🌐 Application: http://localhost:3001$(NC)"
-	@echo "$(CYAN)📧 MailHog: http://localhost:8025$(NC)"
-	@echo "$(CYAN)🔄 n8n: http://localhost:5678$(NC)"
-	@echo ""
-	@echo "$(YELLOW)View logs with: make logs$(NC)"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(GREEN)✓ Development environment started!$(NC)\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(CYAN)🌐 Application: http://localhost:3001$(NC)\n"
+	@$(PRINT) "$(CYAN)📧 MailHog: http://localhost:8025$(NC)\n"
+	@$(PRINT) "$(CYAN)🔄 n8n: http://localhost:5678$(NC)\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(YELLOW)View logs with: make logs$(NC)\n"
 
 ## stop: Stop everything
 .PHONY: stop
 stop:
-	@echo "$(YELLOW)🛑 Stopping development environment...$(NC)"
+	@$(PRINT) "$(YELLOW)🛑 Stopping development environment...$(NC)\n"
 	@docker compose -f docker-compose.dev.yml down
 	@pkill -f "next dev" 2>/dev/null || true
-	@echo "$(GREEN)✓ Stopped$(NC)"
+	@$(PRINT) "$(GREEN)✓ Stopped$(NC)\n"
 
 ## logs: View logs (use s=service for specific service)
 .PHONY: logs
@@ -94,19 +94,19 @@ endif
 ## test: Run tests in Docker
 .PHONY: test
 test:
-	@echo "$(CYAN)🧪 Running tests in Docker...$(NC)"
+	@$(PRINT) "$(CYAN)🧪 Running tests in Docker...$(NC)\n"
 	@docker build --platform linux/amd64 --target tester \
 		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
 		--build-arg NEXTAUTH_SECRET="test-secret" \
 		--build-arg NEXTAUTH_URL="http://localhost:3000" \
 		-t test-runner . && \
 	docker rmi test-runner >/dev/null 2>&1
-	@echo "$(GREEN)✓ Tests completed$(NC)"
+	@$(PRINT) "$(GREEN)✓ Tests completed$(NC)\n"
 
 ## test-local: Run tests on host (faster)
 .PHONY: test-local
 test-local:
-	@echo "$(CYAN)🧪 Running tests locally...$(NC)"
+	@$(PRINT) "$(CYAN)🧪 Running tests locally...$(NC)\n"
 	@cd apps/web && pnpm test
 
 #
@@ -116,9 +116,9 @@ test-local:
 ## validate: Run all CI checks locally (same as GitHub Actions)
 .PHONY: validate
 validate:
-	@echo "$(CYAN)🔍 Running CI validation locally...$(NC)"
-	@echo "This runs the same checks as GitHub Actions"
-	@echo ""
+	@$(PRINT) "$(CYAN)🔍 Running CI validation locally...$(NC)\n"
+	@$(PRINT) "This runs the same checks as GitHub Actions\n"
+	@$(PRINT) "\n"
 	@docker build --platform linux/amd64 --target tester \
 		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
 		--build-arg NEXTAUTH_SECRET="test-secret" \
@@ -135,13 +135,13 @@ validate:
 ## db: Connect to database
 .PHONY: db
 db:
-	@echo "$(CYAN)🗄️  Connecting to database...$(NC)"
+	@$(PRINT) "$(CYAN)🗄️  Connecting to database...$(NC)\n"
 	@docker exec -it $$(docker ps -qf "name=postgres") psql -U postgres soccer
 
 ## shell: Enter container shell
 .PHONY: shell
 shell:
-	@echo "$(CYAN)🐚 Entering shell...$(NC)"
+	@$(PRINT) "$(CYAN)🐚 Entering shell...$(NC)\n"
 ifdef s
 	@docker exec -it $$(docker ps -qf "name=$(s)") /bin/sh
 else
@@ -163,10 +163,10 @@ docker-login:
 ## clean: Clean up resources
 .PHONY: clean
 clean:
-	@echo "$(YELLOW)🧹 Cleaning up...$(NC)"
+	@$(PRINT) "$(YELLOW)🧹 Cleaning up...$(NC)\n"
 	@docker compose -f docker-compose.dev.yml down -v
 	@docker system prune -f
-	@echo "$(GREEN)✓ Cleaned$(NC)"
+	@$(PRINT) "$(GREEN)✓ Cleaned$(NC)\n"
 
 #
 # 🚢 Build & Deploy
@@ -175,22 +175,22 @@ clean:
 ## build: Build Docker image
 .PHONY: build
 build:
-	@echo "$(CYAN)🔨 Building Docker image...$(NC)"
-	@echo "Tag: $(IMAGE_NAME):$(TAG)"
+	@$(PRINT) "$(CYAN)🔨 Building Docker image...$(NC)\n"
+	@$(PRINT) "Tag: $(IMAGE_NAME):$(TAG)\n"
 	@docker build --platform linux/amd64 -t $(IMAGE_NAME):$(TAG) .
-	@echo "$(GREEN)✓ Build complete$(NC)"
+	@$(PRINT) "$(GREEN)✓ Build complete$(NC)\n"
 
 ## push: Push Docker image
 .PHONY: push
 push:
-	@echo "$(CYAN)📤 Pushing Docker image...$(NC)"
+	@$(PRINT) "$(CYAN)📤 Pushing Docker image...$(NC)\n"
 	@docker push $(IMAGE_NAME):$(TAG)
-	@echo "$(GREEN)✓ Push complete$(NC)"
+	@$(PRINT) "$(GREEN)✓ Push complete$(NC)\n"
 
 ## build-and-push: Build and push Docker image
 .PHONY: build-and-push
 build-and-push: build push
-	@echo "$(GREEN)✓ Build and push complete$(NC)"
+	@$(PRINT) "$(GREEN)✓ Build and push complete$(NC)\n"
 
 ## deploy-preview: Deploy to preview environment
 .PHONY: deploy-preview
@@ -243,13 +243,13 @@ status:
 ## migrate: Run database migrations
 .PHONY: migrate
 migrate:
-	@echo "$(CYAN)🔄 Running migrations...$(NC)"
+	@$(PRINT) "$(CYAN)🔄 Running migrations...$(NC)\n"
 	@cd apps/web && pnpm db:migrate:deploy
 
 ## seed: Seed database
 .PHONY: seed  
 seed:
-	@echo "$(CYAN)🌱 Seeding database...$(NC)"
+	@$(PRINT) "$(CYAN)🌱 Seeding database...$(NC)\n"
 	@cd apps/web && pnpm db:seed
 
 ## typecheck: Run TypeScript type checking

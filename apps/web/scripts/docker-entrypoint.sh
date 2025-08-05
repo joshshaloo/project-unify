@@ -7,14 +7,21 @@ echo "[ENTRYPOINT] Current directory: $(pwd)"
 echo "[ENTRYPOINT] 🔧 Configuring environment..."
 
 # Read secrets if they exist and export as environment variables
-if [ -f /run/secrets/postgres_password ]; then
+# Prefer app_db_password for application connections
+if [ -f /run/secrets/app_db_password ]; then
+    echo "[ENTRYPOINT]    Loading app database password from secret..."
+    export APP_DB_PASSWORD=$(cat /run/secrets/app_db_password)
+    export DATABASE_URL="postgresql://appuser:${APP_DB_PASSWORD}@postgres:5432/soccer"
+    export DIRECT_URL="postgresql://appuser:${APP_DB_PASSWORD}@postgres:5432/soccer"
+    echo "[ENTRYPOINT]    Database URL configured (using appuser)"
+elif [ -f /run/secrets/postgres_password ]; then
     echo "[ENTRYPOINT]    Loading PostgreSQL password from secret..."
     export POSTGRES_PASSWORD=$(cat /run/secrets/postgres_password)
     export DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/soccer"
     export DIRECT_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/soccer"
-    echo "[ENTRYPOINT]    Database URL configured (pointing to postgres:5432)"
+    echo "[ENTRYPOINT]    Database URL configured (using postgres superuser)"
 else
-    echo "[ENTRYPOINT]    No postgres_password secret found, using environment variables"
+    echo "[ENTRYPOINT]    No database password secrets found, using environment variables"
     # If DATABASE_URL is not set, try to use default for local testing
     if [ -z "$DATABASE_URL" ]; then
         echo "[ENTRYPOINT]    WARNING: DATABASE_URL not set!"

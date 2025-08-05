@@ -3,6 +3,11 @@ set -e;
 
 echo "Initializing PostgreSQL databases..."
 
+# Read password from file if specified
+if [ -n "${POSTGRES_NON_ROOT_PASSWORD_FILE:-}" ] && [ -f "${POSTGRES_NON_ROOT_PASSWORD_FILE}" ]; then
+    POSTGRES_NON_ROOT_PASSWORD=$(cat "${POSTGRES_NON_ROOT_PASSWORD_FILE}")
+fi
+
 # Create non-root user if specified
 if [ -n "${POSTGRES_NON_ROOT_USER:-}" ] && [ -n "${POSTGRES_NON_ROOT_PASSWORD:-}" ]; then
     echo "Creating user ${POSTGRES_NON_ROOT_USER}..."

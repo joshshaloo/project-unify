@@ -306,6 +306,17 @@ def get_default_env_vars(environment: str, image_tag: str) -> List[Dict]:
         {'name': 'IMAGE', 'value': f'ghcr.io/joshshaloo/soccer/project-unify:{image_tag}'},
     ]
     
+    # Generate a secure password for n8n if not already set
+    n8n_password = os.getenv('N8N_DB_PASSWORD')
+    if not n8n_password:
+        # Generate a secure password
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        n8n_password = ''.join(secrets.choice(alphabet) for _ in range(20))
+        print(f"📝 Generated N8N_DB_PASSWORD: {n8n_password}")
+        print(f"   Save this password - it will be needed for n8n database access")
+    
+    base_vars.append({'name': 'N8N_DB_PASSWORD', 'value': n8n_password})
+    
     if environment == 'prod':
         # Production-specific non-secret vars
         base_vars.extend([
@@ -451,18 +462,34 @@ def main():
             stack_file = f'docker-stack.{args.environment}.yml'
             stack_content = load_stack_file(stack_file)
             
-            # Update IMAGE env var
-            env_vars = [{'name': 'IMAGE', 'value': f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'}]
+            # Get existing environment variables from the stack
+            existing_env_vars = existing_stack.get('Env', [])
+            env_dict = {var['name']: var['value'] for var in existing_env_vars}
             
-            # For production, keep existing SMTP settings
+            # Update IMAGE env var
+            env_dict['IMAGE'] = f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'
+            
+            # Ensure N8N_DB_PASSWORD is set (preserve existing or generate new)
+            if 'N8N_DB_PASSWORD' not in env_dict:
+                alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+                n8n_password = ''.join(secrets.choice(alphabet) for _ in range(20))
+                env_dict['N8N_DB_PASSWORD'] = n8n_password
+                print(f"📝 Generated N8N_DB_PASSWORD: {n8n_password}")
+                print(f"   Save this password - it will be needed for n8n database access")
+            
+            # For production, ensure SMTP settings are present
             if args.environment == 'prod':
-                # These would normally come from existing stack config
-                env_vars.extend([
-                    {'name': 'SMTP_HOST', 'value': 'smtp.example.com'},
-                    {'name': 'SMTP_PORT', 'value': '587'},
-                    {'name': 'SMTP_USER', 'value': 'CHANGE-ME'},
-                    {'name': 'EMAIL_FROM', 'value': 'noreply@app.clubomatic.ai'},
-                ])
+                if 'SMTP_HOST' not in env_dict:
+                    env_dict['SMTP_HOST'] = 'smtp.example.com'
+                if 'SMTP_PORT' not in env_dict:
+                    env_dict['SMTP_PORT'] = '587'
+                if 'SMTP_USER' not in env_dict:
+                    env_dict['SMTP_USER'] = 'CHANGE-ME'
+                if 'EMAIL_FROM' not in env_dict:
+                    env_dict['EMAIL_FROM'] = 'noreply@app.clubomatic.ai'
+            
+            # Convert back to list format
+            env_vars = [{'name': k, 'value': v} for k, v in env_dict.items()]
             
             client.update_stack(existing_stack['Id'], stack_content, env_vars)
             print(f"✅ Stack update initiated!")

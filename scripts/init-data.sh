@@ -8,8 +8,7 @@ if [ -n "${POSTGRES_APP_PASSWORD_FILE:-}" ] && [ -f "${POSTGRES_APP_PASSWORD_FIL
     POSTGRES_APP_PASSWORD=$(cat "${POSTGRES_APP_PASSWORD_FILE}")
 fi
 
-# n8n password comes from environment variable
-# (No file reading needed since n8n container doesn't have shell)
+# n8n password comes from environment variable (passed in docker-stack.yml)
 
 # Create app user if specified
 if [ -n "${POSTGRES_APP_USER:-}" ] && [ -n "${POSTGRES_APP_PASSWORD:-}" ]; then

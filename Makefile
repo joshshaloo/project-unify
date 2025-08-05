@@ -192,22 +192,16 @@ push:
 build-and-push: build push
 	@$(PRINT) "$(GREEN)✓ Build and push complete$(NC)\n"
 
-## deploy-preview: Deploy to preview environment
+## deploy-preview: Build, push and deploy to preview environment
 .PHONY: deploy-preview
-deploy-preview:
-ifndef TAG
-	@$(PRINT) "$(RED)❌ Please specify TAG: make deploy-preview TAG=abc123$(NC)\n"
-	@exit 1
-endif
+deploy-preview: build-and-push
+	@$(PRINT) "$(CYAN)🚀 Deploying to preview environment...$(NC)\n"
 	@python3 scripts/portainer_deploy.py deploy preview $(TAG)
 
-## deploy-prod: Deploy to production
+## deploy-prod: Build, push and deploy to production
 .PHONY: deploy-prod
-deploy-prod:
-ifndef TAG
-	@$(PRINT) "$(RED)❌ Please specify TAG: make deploy-prod TAG=abc123$(NC)\n"
-	@exit 1
-endif
+deploy-prod: build-and-push
+	@$(PRINT) "$(CYAN)🚀 Deploying to production...$(NC)\n"
 	@python3 scripts/portainer_deploy.py deploy prod $(TAG)
 
 #

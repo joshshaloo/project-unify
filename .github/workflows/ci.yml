@@ -9,17 +9,25 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Build and validate everything through Docker
-  build-and-validate:
-    name: Build & Validate
+  # Validate code through Docker
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate
+        run: make validate
+
+  # Deploy to appropriate environment (includes build & push)
+  deploy:
+    needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-      
-    outputs:
-      image-tag: ${{ steps.tag.outputs.tag }}
-      
+    
     steps:
       - uses: actions/checkout@v4
       
@@ -30,27 +38,6 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
       
-      - name: Determine image tag
-        id: tag
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
-      
-      - name: Validate
-        run: make validate
-      
-      - name: Build production image
-        run: make build TAG=${{ steps.tag.outputs.tag }}
-      
-      - name: Push image
-        run: make push TAG=${{ steps.tag.outputs.tag }}
-
-  # Deploy to appropriate environment
-  deploy:
-    needs: build-and-validate
-    runs-on: ubuntu-latest
-    
-    steps:
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
@@ -63,7 +50,7 @@ jobs:
         env:
           PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
           PORTAINER_HOST: ${{ secrets.PORTAINER_HOST }}
-        run: make deploy-preview TAG=${{ needs.build-and-validate.outputs.image-tag }}
+        run: make deploy-preview
       
       - name: Deploy to Production (main branch)
         if: github.ref == 'refs/heads/main'
@@ -72,7 +59,7 @@ jobs:
           PORTAINER_HOST: ${{ secrets.PORTAINER_HOST }}
         run: |
           # Auto-confirm for CI
-          echo "deploy" | make deploy-prod TAG=${{ needs.build-and-validate.outputs.image-tag }}
+          echo "deploy" | make deploy-prod
 
   # Run E2E tests against deployed environment
   e2e-tests:

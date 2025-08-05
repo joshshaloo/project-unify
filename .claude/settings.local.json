@@ -161,7 +161,9 @@
       "Bash(DATABASE_URL=\"postgresql://postgres:password@172.20.0.22:5435/soccer\" pnpm prisma migrate deploy)",
       "Bash(pnpm prisma migrate resolve:*)",
       "Bash(env)",
-      "Bash(PGPASSWORD=password psql:*)"
+      "Bash(PGPASSWORD=password psql:*)",
+      "Bash(DEBUG=1 python3 scripts/portainer_deploy.py deploy preview bb1d33b --no-wait)",
+      "Bash(./scripts/test-n8n.sh:*)"
     ],
     "deny": []
   },

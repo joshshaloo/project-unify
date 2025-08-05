@@ -132,12 +132,13 @@ services:
     secrets:
       - n8n_password
       - postgres_password
-    entrypoint: >
-      sh -c '
-      export N8N_BASIC_AUTH_PASSWORD=$(cat /run/secrets/n8n_password) &&
-      export DB_POSTGRESDB_PASSWORD=$(cat /run/secrets/postgres_password) &&
-      /usr/local/bin/n8n
-      '
+    entrypoint:
+      - sh
+      - -c
+      - |
+        export N8N_BASIC_AUTH_PASSWORD=$$(cat /run/secrets/n8n_password)
+        export DB_POSTGRESDB_PASSWORD=$$(cat /run/secrets/postgres_password)
+        exec /usr/local/bin/n8n
     depends_on:
       - postgres
     volumes:

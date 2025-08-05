@@ -26,24 +26,33 @@ chmod +x /mnt/truenas/docker_volumes/project-unity/config/init-data.sh
 - `soccer_preview_postgres_password` - PostgreSQL superuser password
 - `soccer_preview_nextauth_secret` - NextAuth.js secret for sessions
 - `soccer_preview_app_db_password` - Application database user password
+- `soccer_preview_n8n_db_password` - n8n database user password
 
 ### Production Environment:
 - `soccer_prod_postgres_password` - PostgreSQL superuser password
 - `soccer_prod_nextauth_secret` - NextAuth.js secret for sessions
 - `soccer_prod_smtp_password` - SMTP password for email sending
 - `soccer_prod_app_db_password` - Application database user password
+- `soccer_prod_n8n_db_password` - n8n database user password
 
 ## What the script does:
 
-- Creates a non-root user `appuser` with password from `app_db_password` secret
+- Creates a user `appuser` with password from `app_db_password` secret
+- Creates a user `n8nuser` with password from `n8n_db_password` secret
 - Creates the `n8n` database (the `soccer` database is already created by POSTGRES_DB)
-- Grants full privileges on both databases to the `appuser`
+- Grants full privileges on `soccer` database to `appuser`
+- Grants full privileges on `n8n` database to `n8nuser`
 
 ## Database Access:
 
-Both the main app and n8n will use:
+Application:
 - User: `appuser`
 - Password: From `app_db_password` secret
-- Databases: `soccer` (main app) and `n8n` (n8n workflows)
+- Database: `soccer`
+
+n8n:
+- User: `n8nuser`
+- Password: From `n8n_db_password` secret
+- Database: `n8n`
 
 The postgres superuser still uses the password from the `postgres_password` secret.

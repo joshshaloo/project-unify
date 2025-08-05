@@ -304,18 +304,8 @@ def get_default_env_vars(environment: str, image_tag: str) -> List[Dict]:
     # Since we're using Docker secrets, we only need non-sensitive env vars
     base_vars = [
         {'name': 'IMAGE', 'value': f'ghcr.io/joshshaloo/soccer/project-unify:{image_tag}'},
+        {'name': 'N8N_DB_PASSWORD', 'value': 'CHANGE-ME'},  # Placeholder - must be changed
     ]
-    
-    # Generate a secure password for n8n if not already set
-    n8n_password = os.getenv('N8N_DB_PASSWORD')
-    if not n8n_password:
-        # Generate a secure password
-        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-        n8n_password = ''.join(secrets.choice(alphabet) for _ in range(20))
-        print(f"📝 Generated N8N_DB_PASSWORD: {n8n_password}")
-        print(f"   Save this password - it will be needed for n8n database access")
-    
-    base_vars.append({'name': 'N8N_DB_PASSWORD', 'value': n8n_password})
     
     if environment == 'prod':
         # Production-specific non-secret vars
@@ -420,17 +410,21 @@ def main():
             result = client.create_stack(stack_name, stack_content, env_vars)
             print(f"✅ Stack created successfully!")
             print(f"Stack ID: {result['Id']}")
-            print(f"\n📝 Prerequisites:")
-            print(f"   Ensure these secrets exist in Portainer:")
+            print(f"\n⚠️  IMPORTANT - Manual steps required:")
+            print(f"\n1. Create these secrets in Portainer:")
             if args.environment == 'preview':
                 print(f"   - soccer_preview_postgres_password")
                 print(f"   - soccer_preview_nextauth_secret")
-                print(f"   - soccer_preview_n8n_password")
+                print(f"   - soccer_preview_app_db_password")
             else:
                 print(f"   - soccer_prod_postgres_password")
                 print(f"   - soccer_prod_nextauth_secret")
-                print(f"   - soccer_prod_n8n_password")
+                print(f"   - soccer_prod_app_db_password")
                 print(f"   - soccer_prod_smtp_password")
+            print(f"\n2. Update the stack environment variables:")
+            print(f"   - Change N8N_DB_PASSWORD from 'CHANGE-ME' to a secure password")
+            if args.environment == 'prod':
+                print(f"   - Update SMTP settings (SMTP_HOST, SMTP_USER, etc.)")
             print(f"\n🔗 Portainer URL: {portainer_host}/#/stacks/{stack_name}")
         except Exception as e:
             print(f"❌ Failed to create stack: {e}")
@@ -469,13 +463,19 @@ def main():
             # Update IMAGE env var
             env_dict['IMAGE'] = f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'
             
-            # Ensure N8N_DB_PASSWORD is set (preserve existing or generate new)
+            # Ensure N8N_DB_PASSWORD is set
             if 'N8N_DB_PASSWORD' not in env_dict:
-                alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-                n8n_password = ''.join(secrets.choice(alphabet) for _ in range(20))
-                env_dict['N8N_DB_PASSWORD'] = n8n_password
-                print(f"📝 Generated N8N_DB_PASSWORD: {n8n_password}")
-                print(f"   Save this password - it will be needed for n8n database access")
+                print(f"❌ ERROR: N8N_DB_PASSWORD is not set in the stack!")
+                print(f"")
+                print(f"To fix this:")
+                print(f"1. Go to Portainer > Stacks > {stack_name}")
+                print(f"2. Click 'Edit this stack'")
+                print(f"3. Add environment variable: N8N_DB_PASSWORD")
+                print(f"4. Set a secure password value")
+                print(f"5. Update the stack")
+                print(f"")
+                print(f"Then run this deploy command again.")
+                sys.exit(1)
             
             # For production, ensure SMTP settings are present
             if args.environment == 'prod':

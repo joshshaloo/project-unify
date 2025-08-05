@@ -21,6 +21,7 @@ services:
       NODE_ENV: production
       REDIS_URL: redis://redis:6379
       NEXTAUTH_URL: https://app.clubomatic.ai
+      NEXT_PUBLIC_APP_URL: https://app.clubomatic.ai
       EMAIL_SERVER_HOST: ${SMTP_HOST}
       EMAIL_SERVER_PORT: ${SMTP_PORT}
       EMAIL_SERVER_USER: ${SMTP_USER}

@@ -8,10 +8,8 @@ if [ -n "${POSTGRES_APP_PASSWORD_FILE:-}" ] && [ -f "${POSTGRES_APP_PASSWORD_FIL
     POSTGRES_APP_PASSWORD=$(cat "${POSTGRES_APP_PASSWORD_FILE}")
 fi
 
-# Read n8n password from file if specified
-if [ -n "${POSTGRES_N8N_PASSWORD_FILE:-}" ] && [ -f "${POSTGRES_N8N_PASSWORD_FILE}" ]; then
-    POSTGRES_N8N_PASSWORD=$(cat "${POSTGRES_N8N_PASSWORD_FILE}")
-fi
+# n8n password comes from environment variable
+# (No file reading needed since n8n container doesn't have shell)
 
 # Create app user if specified
 if [ -n "${POSTGRES_APP_USER:-}" ] && [ -n "${POSTGRES_APP_PASSWORD:-}" ]; then

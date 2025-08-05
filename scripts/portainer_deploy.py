@@ -463,8 +463,8 @@ def main():
             # Update IMAGE env var
             env_dict['IMAGE'] = f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'
             
-            # Ensure N8N_DB_PASSWORD is set
-            if 'N8N_DB_PASSWORD' not in env_dict:
+            # Ensure N8N_DB_PASSWORD is set (check both possible names)
+            if 'N8N_DB_PASSWORD' not in env_dict and 'DB_POSTGRESDB_PASSWORD' not in env_dict:
                 print(f"❌ ERROR: N8N_DB_PASSWORD is not set in the stack!")
                 print(f"")
                 print(f"To fix this:")
@@ -476,6 +476,12 @@ def main():
                 print(f"")
                 print(f"Then run this deploy command again.")
                 sys.exit(1)
+            
+            # If user has DB_POSTGRESDB_PASSWORD, migrate to N8N_DB_PASSWORD
+            if 'DB_POSTGRESDB_PASSWORD' in env_dict and 'N8N_DB_PASSWORD' not in env_dict:
+                env_dict['N8N_DB_PASSWORD'] = env_dict['DB_POSTGRESDB_PASSWORD']
+                del env_dict['DB_POSTGRESDB_PASSWORD']
+                print(f"📝 Migrated DB_POSTGRESDB_PASSWORD to N8N_DB_PASSWORD")
             
             # For production, ensure SMTP settings are present
             if args.environment == 'prod':

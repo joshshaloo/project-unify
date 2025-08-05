@@ -460,6 +460,10 @@ def main():
             existing_env_vars = existing_stack.get('Env', [])
             env_dict = {var['name']: var['value'] for var in existing_env_vars}
             
+            # Debug: Show what variables we're preserving
+            if 'DB_POSTGRESDB_PASSWORD' in env_dict:
+                print(f"📝 Preserving DB_POSTGRESDB_PASSWORD from existing stack")
+            
             # Update IMAGE env var
             env_dict['IMAGE'] = f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'
             

@@ -116,19 +116,10 @@ services:
 
   n8n:
     image: n8nio/n8n:stable
-    command:
-      - sh
-      - -c
-      - 'export DB_POSTGRESDB_PASSWORD=$$(cat /run/secrets/postgres_password) && exec n8n'
+    user: "1000:1000"
     environment:
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=postgres
-      - DB_POSTGRESDB_DATABASE=n8n
-      - DB_POSTGRESDB_USER=postgres
-      - DB_POSTGRESDB_PORT=5432
+      - DB_TYPE=sqlite
       - WEBHOOK_URL=https://n8n.clubomatic.ai/
-    secrets:
-      - postgres_password
     depends_on:
       - postgres
     volumes:

@@ -5,7 +5,8 @@ import { verifyMagicLink, createSession } from '@/lib/auth/magic-link'
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get('token')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://preview.clubomatic.ai'
+  // Use NEXTAUTH_URL for server-side redirects (NEXT_PUBLIC vars are baked at build time)
+  const appUrl = process.env.NEXTAUTH_URL || 'https://preview.clubomatic.ai'
   
   if (!token) {
     return NextResponse.redirect(new URL('/auth/login?error=missing-token', appUrl))

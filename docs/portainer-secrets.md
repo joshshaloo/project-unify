@@ -14,21 +14,21 @@ Previously, we had hardcoded passwords in the docker-stack files. Now all passwo
    - Used by: postgres, app services
    - Description: Application database password for soccer database access
 
-2. **soccer_preview_n8n_db_password** (NEW)
-   - Purpose: Password for the `n8nuser` database user
-   - Used by: postgres, n8n services
-   - Description: n8n database password for n8n database access
-
 ### Production Environment:
 1. **soccer_prod_app_db_password** (NEW)
    - Purpose: Password for the `appuser` database user
    - Used by: postgres, app services
    - Description: Application database password for soccer database access
 
-2. **soccer_prod_n8n_db_password** (NEW)
-   - Purpose: Password for the `n8nuser` database user
-   - Used by: postgres, n8n services
-   - Description: n8n database password for n8n database access
+## Environment Variables to SET in Portainer:
+
+When deploying the stack, set these environment variables:
+
+### Preview Environment:
+- **N8N_DB_PASSWORD** - Password for the `n8nuser` database user
+
+### Production Environment:
+- **N8N_DB_PASSWORD** - Password for the `n8nuser` database user
 
 ## Secrets to REMOVE from Portainer:
 
@@ -42,14 +42,12 @@ Previously, we had hardcoded passwords in the docker-stack files. Now all passwo
 - `soccer_preview_postgres_password` - PostgreSQL superuser password
 - `soccer_preview_nextauth_secret` - NextAuth.js secret for sessions
 - `soccer_preview_app_db_password` - Application database user password (NEW)
-- `soccer_preview_n8n_db_password` - n8n database user password (NEW)
 
 ### Production Environment:
 - `soccer_prod_postgres_password` - PostgreSQL superuser password
 - `soccer_prod_nextauth_secret` - NextAuth.js secret for sessions
 - `soccer_prod_smtp_password` - SMTP password for email sending
 - `soccer_prod_app_db_password` - Application database user password (NEW)
-- `soccer_prod_n8n_db_password` - n8n database user password (NEW)
 
 ## How to Create Secrets in Portainer:
 

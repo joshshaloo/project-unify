@@ -194,7 +194,9 @@
       "Bash(for file in e2e/*.spec.ts)",
       "Bash(do echo \"$file:\")",
       "Bash(done)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(pnpm exec playwright test:*)",
+      "Bash(timeout 30 pnpm test:e2e --grep \"should prevent past date selection|should be keyboard navigable\" --reporter=list --project=chromium)"
     ],
     "deny": []
   },

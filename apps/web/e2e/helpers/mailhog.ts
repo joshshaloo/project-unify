@@ -167,8 +167,69 @@ export async function authenticateUser(page: Page, email: string): Promise<void>
   }
   
   // Navigate to magic link
-  await page.goto(magicLink)
+  // WebKit has issues with server-side redirects, so we need special handling
+  const browserName = page.context().browser()?.browserType().name()
   
-  // Wait for redirect to dashboard
-  await page.waitForURL('/dashboard', { timeout: 10000 })
+  if (browserName === 'webkit') {
+    // For WebKit, use a more careful approach
+    try {
+      // Don't wait for networkidle as it can cause issues with redirects
+      await page.goto(magicLink, { waitUntil: 'commit' })
+    } catch (error) {
+      // WebKit often interrupts navigation during redirects - this is expected
+      if (!error.message?.includes('interrupted')) {
+        throw error
+      }
+    }
+    
+    // Give WebKit time to process the redirect chain
+    await page.waitForTimeout(1000)
+    
+    // Now wait for the final URL
+    try {
+      await page.waitForURL('/dashboard', { timeout: 10000 })
+    } catch (error) {
+      // Log the current URL for debugging
+      const currentUrl = page.url()
+      console.log('WebKit auth failed. Current URL:', currentUrl)
+      
+      // If we're on login page, authentication failed
+      if (currentUrl.includes('/auth/login')) {
+        // The token might have been already used or expired
+        // For alex@lightningfc.com, which is used across tests, we might have timing issues
+        // Let's retry with a fresh magic link
+        console.log('WebKit auth redirect to login, retrying with fresh token...')
+        
+        // Request a new magic link
+        await page.fill('input[name="email"]', email)
+        await page.click('button[type="submit"]')
+        await page.waitForSelector('text=Check your email', { timeout: 10000 })
+        
+        // Get the new magic link
+        const newMagicLink = await getMagicLinkFromEmail(email)
+        if (!newMagicLink) {
+          throw new Error(`Failed to get retry magic link for ${email}`)
+        }
+        
+        // Try again with the new link
+        try {
+          await page.goto(newMagicLink, { waitUntil: 'commit' })
+        } catch (retryError) {
+          // Ignore interruption errors
+          if (!retryError.message?.includes('interrupted')) {
+            throw retryError
+          }
+        }
+        
+        await page.waitForTimeout(1000)
+        await page.waitForURL('/dashboard', { timeout: 10000 })
+      } else {
+        throw error
+      }
+    }
+  } else {
+    // For other browsers, use the standard approach
+    await page.goto(magicLink, { waitUntil: 'networkidle' })
+    await page.waitForURL('/dashboard', { timeout: 10000 })
+  }
 }

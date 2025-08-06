@@ -62,7 +62,7 @@ jobs:
           python-version: '3.x'
       
       - name: Install Python dependencies
-        run: pip install python-dotenv requests
+        run: pip install python-dotenv requests pyyaml urllib3
       
       - name: Deploy PR to Preview Environment
         id: deploy

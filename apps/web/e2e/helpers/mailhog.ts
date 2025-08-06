@@ -29,8 +29,17 @@ interface MailHogResponse {
 export class MailHogHelper {
   private mailhogUrl: string
 
-  constructor(mailhogUrl: string = 'http://localhost:8025') {
-    this.mailhogUrl = mailhogUrl
+  constructor(mailhogUrl?: string) {
+    // Use environment variable or default based on test environment
+    if (mailhogUrl) {
+      this.mailhogUrl = mailhogUrl
+    } else if (process.env.MAILHOG_URL) {
+      this.mailhogUrl = process.env.MAILHOG_URL
+    } else if (process.env.TEST_ENV === 'preview') {
+      this.mailhogUrl = 'https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog'
+    } else {
+      this.mailhogUrl = 'http://localhost:8025'
+    }
   }
 
   async getMessages(): Promise<MailHogMessage[]> {
@@ -84,7 +93,9 @@ export class MailHogHelper {
       // Clean up any remaining HTML entities
       link = link.replace(/&amp;/g, '&')
       // Ensure correct port for local tests
-      link = link.replace(':3000', ':3001')
+      if (process.env.TEST_ENV !== 'preview') {
+        link = link.replace(':3000', ':3001')
+      }
       return link
     }
     return null

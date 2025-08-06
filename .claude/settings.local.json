@@ -165,7 +165,8 @@
       "Bash(DEBUG=1 python3 scripts/portainer_deploy.py deploy preview bb1d33b --no-wait)",
       "Bash(./scripts/test-n8n.sh:*)",
       "Bash(docker service logs:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(DEBUG=1 python3 scripts/portainer_deploy.py status)"
     ],
     "deny": []
   },

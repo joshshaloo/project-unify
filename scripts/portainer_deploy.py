@@ -305,6 +305,7 @@ def get_default_env_vars(environment: str, image_tag: str) -> List[Dict]:
     base_vars = [
         {'name': 'IMAGE', 'value': f'ghcr.io/joshshaloo/soccer/project-unify:{image_tag}'},
         {'name': 'N8N_DB_PASSWORD', 'value': 'CHANGE-ME'},  # Placeholder - must be changed
+        {'name': 'TS_AUTHKEY', 'value': 'CHANGE-ME'},  # Tailscale auth key - must be changed
     ]
     
     if environment == 'prod':
@@ -423,6 +424,7 @@ def main():
                 print(f"   - soccer_prod_smtp_password")
             print(f"\n2. Update the stack environment variables:")
             print(f"   - Change N8N_DB_PASSWORD from 'CHANGE-ME' to a secure password")
+            print(f"   - Change TS_AUTHKEY from 'CHANGE-ME' to your Tailscale auth key")
             if args.environment == 'prod':
                 print(f"   - Update SMTP settings (SMTP_HOST, SMTP_USER, etc.)")
             print(f"\n🔗 Portainer URL: {portainer_host}/#/stacks/{stack_name}")
@@ -467,14 +469,25 @@ def main():
             # Update IMAGE env var
             env_dict['IMAGE'] = f'ghcr.io/joshshaloo/soccer/project-unify:{args.image_tag}'
             
-            # Check for n8n password - either name is fine
-            has_n8n_password = 'N8N_DB_PASSWORD' in env_dict or 'DB_POSTGRESDB_PASSWORD' in env_dict
+            # Check for n8n password
+            if 'N8N_DB_PASSWORD' not in env_dict:
+                print(f"⚠️  WARNING: N8N_DB_PASSWORD not found in stack environment!")
+                print(f"   n8n will fail to start without this variable.")
+                print(f"   To fix: Go to Portainer > Stacks > {stack_name} > Edit")
+                print(f"   Add N8N_DB_PASSWORD to the stack environment variables (not service level)")
+                # Set a placeholder to prevent empty substitution
+                env_dict['N8N_DB_PASSWORD'] = 'CHANGE-ME'
+            else:
+                print(f"✅ Preserving N8N_DB_PASSWORD in stack environment")
             
-            if not has_n8n_password:
-                print(f"⚠️  WARNING: No n8n database password found!")
-                print(f"   n8n may fail to start without N8N_DB_PASSWORD or DB_POSTGRESDB_PASSWORD.")
-                print(f"   To set it: Portainer > Stacks > {stack_name} > Edit")
-                # Don't fail - just warn
+            # Check for Tailscale auth key
+            if 'TS_AUTHKEY' not in env_dict:
+                print(f"ℹ️  INFO: TS_AUTHKEY not found in stack environment")
+                print(f"   Tailscale sidecar will not start without this.")
+                print(f"   To enable: Add TS_AUTHKEY with a reusable auth key from Tailscale admin")
+                env_dict['TS_AUTHKEY'] = 'CHANGE-ME'
+            else:
+                print(f"✅ Preserving TS_AUTHKEY in stack environment")
             
             # For production, ensure SMTP settings are present
             if args.environment == 'prod':

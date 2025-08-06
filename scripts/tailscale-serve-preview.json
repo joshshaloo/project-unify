@@ -1,0 +1,16 @@
+{
+  "TCP": {
+    "443": {
+      "HTTPS": true
+    }
+  },
+  "Web": {
+    "soccer-preview-ts.rockhopper-crested.ts.net:443": {
+      "Handlers": {
+        "/mailhog": {
+          "Proxy": "http://mailhog:8025/mailhog"
+        }
+      }
+    }
+  }
+}

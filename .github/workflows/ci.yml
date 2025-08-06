@@ -45,6 +45,14 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
       
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install Python dependencies
+        run: pip install python-dotenv requests
+      
       - name: Deploy to Preview (develop branch)
         if: github.ref == 'refs/heads/develop'
         env:

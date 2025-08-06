@@ -57,12 +57,12 @@ Only minimal secrets needed in GitHub:
 
 ### Essential Secrets
 - `PORTAINER_API_KEY` - For deployment API calls
-- `PORTAINER_HOST` - Portainer API endpoint  
+- `PORTAINER_HOST` - Portainer API endpoint
 - `TS_OAUTH_CLIENT_ID` - Tailscale authentication
 - `TS_OAUTH_SECRET` - Tailscale authentication
 - `PREVIEW_DATABASE_URL` - PostgreSQL connection string for seeding preview database
-  Format: `postgresql://username:password@host:port/database`
-  Example: `postgresql://postgres:mypassword@172.20.0.22:5435/soccer`
+  - Format: `postgresql://username:password@host:port/database`
+  - Example: `postgresql://postgres:mypassword@172.20.0.22:5435/soccer`
 
 ### Application Secrets
 Most application secrets (API keys, etc.) are configured in Portainer stack environment variables, not in GitHub. This follows security best practices. The database URL is an exception as it's needed for seeding test data in the CI pipeline.

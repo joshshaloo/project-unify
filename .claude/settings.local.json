@@ -174,7 +174,9 @@
       "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/ai-session-generation.spec.ts --reporter=list)",
       "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts --reporter=list)",
       "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/auth-magic-link.spec.ts e2e/dashboard.spec.ts --reporter=list)",
-      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/test-mailhog.spec.ts --reporter=list)"
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/test-mailhog.spec.ts --reporter=list)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/test-mailhog.spec.ts e2e/webkit-diagnostic.spec.ts --reporter=list)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts \"e2e/user-workflows.spec.ts:136\" --reporter=list)"
     ],
     "deny": []
   },

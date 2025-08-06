@@ -165,8 +165,9 @@ export async function getMagicLinkFromMailHog(email: string): Promise<string | n
     // Add small delay to prevent overwhelming MailHog API
     await randomDelay(50, 200)
     
-    // MailHog API endpoint
-    const response = await fetch('http://localhost:8025/api/v2/messages')
+    // MailHog API endpoint - use environment variable if available
+    const mailhogUrl = process.env.MAILHOG_URL || 'http://localhost:8025'
+    const response = await fetch(`${mailhogUrl}/api/v2/messages`)
     
     if (!response.ok) {
       console.log(`MailHog API returned ${response.status}`)
@@ -251,7 +252,8 @@ export async function clearMailHogEmails(): Promise<void> {
   
   const success = await waitForCondition(async () => {
     try {
-      const response = await fetch('http://localhost:8025/api/v1/messages', {
+      const mailhogUrl = process.env.MAILHOG_URL || 'http://localhost:8025'
+      const response = await fetch(`${mailhogUrl}/api/v1/messages`, {
         method: 'DELETE'
       })
       return response.ok

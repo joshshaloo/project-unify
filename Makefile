@@ -42,6 +42,7 @@ help:
 	@$(PRINT) "  $(GREEN)make stop$(NC)           - Stop everything\n"
 	@$(PRINT) "  $(GREEN)make logs$(NC)           - View logs (use s=service for specific)\n"
 	@$(PRINT) "  $(GREEN)make test$(NC)           - Run tests in Docker\n"
+	@$(PRINT) "  $(GREEN)make test-e2e$(NC)       - Run E2E tests locally\n"
 	@$(PRINT) "\n"
 	@$(PRINT) "$(BOLD)Before Pushing Code$(NC)\n"
 	@$(PRINT) "  $(GREEN)make validate$(NC)       - Run all CI checks locally\n"
@@ -108,6 +109,24 @@ test:
 test-local:
 	@$(PRINT) "$(CYAN)🧪 Running tests locally...$(NC)\n"
 	@cd apps/web && pnpm test
+
+## test-e2e: Run E2E tests locally
+.PHONY: test-e2e
+test-e2e:
+	@$(PRINT) "$(CYAN)🧪 Running E2E tests locally...$(NC)\n"
+	@$(PRINT) "$(YELLOW)Checking local services...$(NC)\n"
+	@if ! docker ps | grep -q postgres; then \
+		$(PRINT) "$(YELLOW)Starting PostgreSQL...$(NC)\n"; \
+		docker run -d --name postgres-test -e POSTGRES_PASSWORD=localpassword -e POSTGRES_DB=soccer -p 5433:5432 postgres:15-alpine; \
+		sleep 3; \
+	fi
+	@if ! docker ps | grep -q mailhog; then \
+		$(PRINT) "$(YELLOW)Starting MailHog...$(NC)\n"; \
+		docker run -d --name mailhog-test -p 8025:8025 -p 1025:1025 mailhog/mailhog; \
+		sleep 2; \
+	fi
+	@$(PRINT) "$(GREEN)✓ Services ready$(NC)\n"
+	@cd apps/web && pnpm test:e2e --reporter=list
 
 ## test-preview: Run e2e tests against preview environment
 .PHONY: test-preview

@@ -45,8 +45,9 @@ The project uses GitHub Actions for CI/CD with a simplified approach where all w
 1. **Validate** - Runs `make validate` for all checks
 2. **Build & Push** - Tags as `pr-NUMBER-SHA`
 3. **Deploy Preview** - Updates shared preview environment
-4. **Test Preview** - Runs E2E tests
-5. **Update Status** - Posts results to PR
+4. **Seed Database** - Seeds preview database with test data
+5. **Test Preview** - Runs full E2E test suite (303 tests: 101 tests × 3 browsers)
+6. **Update Status** - Posts results to PR
 
 **Preview URL:** https://preview.clubomatic.ai (shared for all PRs)
 
@@ -56,12 +57,15 @@ Only minimal secrets needed in GitHub:
 
 ### Essential Secrets
 - `PORTAINER_API_KEY` - For deployment API calls
-- `PORTAINER_HOST` - Portainer API endpoint
+- `PORTAINER_HOST` - Portainer API endpoint  
 - `TS_OAUTH_CLIENT_ID` - Tailscale authentication
 - `TS_OAUTH_SECRET` - Tailscale authentication
+- `PREVIEW_DATABASE_URL` - PostgreSQL connection string for seeding preview database
+  Format: `postgresql://username:password@host:port/database`
+  Example: `postgresql://postgres:mypassword@172.20.0.22:5435/soccer`
 
 ### Application Secrets
-All application secrets (database passwords, API keys, etc.) are configured in Portainer stack environment variables, not in GitHub. This follows security best practices.
+Most application secrets (API keys, etc.) are configured in Portainer stack environment variables, not in GitHub. This follows security best practices. The database URL is an exception as it's needed for seeding test data in the CI pipeline.
 
 ## Local Commands
 

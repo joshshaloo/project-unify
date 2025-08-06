@@ -176,7 +176,12 @@
       "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/auth-magic-link.spec.ts e2e/dashboard.spec.ts --reporter=list)",
       "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/test-mailhog.spec.ts --reporter=list)",
       "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts e2e/test-mailhog.spec.ts e2e/webkit-diagnostic.spec.ts --reporter=list)",
-      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts \"e2e/user-workflows.spec.ts:136\" --reporter=list)"
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts \"e2e/user-workflows.spec.ts:136\" --reporter=list)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 timeout 30 pnpm playwright test --config=playwright.config.preview.ts --reporter=list)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:password@172.20.0.22:5435/soccer\" pnpm db:seed)",
+      "Bash(PGPASSWORD=postgres psql -h 172.20.0.22 -p 5435 -U postgres soccer -c \"SELECT COUNT(*) FROM \"\"Club\"\";\")",
+      "Bash(DATABASE_URL=\"postgresql://postgres:localpassword@localhost:5433/soccer\" pnpm prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:localpassword@localhost:5433/soccer\" pnpm db:seed)"
     ],
     "deny": []
   },

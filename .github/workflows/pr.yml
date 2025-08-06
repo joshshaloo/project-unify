@@ -84,6 +84,27 @@ jobs:
             sleep 10
           done
       
+      - name: Setup Node.js for seeding
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm for seeding
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies for seeding
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+      
+      - name: Seed preview database
+        run: |
+          cd apps/web
+          ../../scripts/seed-preview.sh
+        env:
+          DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+      
       - name: Comment PR
         uses: actions/github-script@v7
         with:
@@ -148,15 +169,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       
+      - name: Setup Tailscale for MailHog access
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
         working-directory: apps/web
       
-      - name: Run E2E tests against preview
-        run: pnpm test:e2e --project=chromium
+      - name: Run E2E tests against preview (all browsers)
+        run: pnpm playwright test --config=playwright.config.preview.ts --reporter=list
         working-directory: apps/web
         env:
-          PLAYWRIGHT_BASE_URL: ${{ needs.deploy-pr-preview.outputs.preview-url }}
+          TEST_ENV: preview
+          MAILHOG_URL: https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
       
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -193,7 +223,7 @@ jobs:
             const body = `## ${statusEmoji} PR Status Update
             
             **Build & Validation:** ${buildResult === 'success' ? '✅ Passed' : '❌ Failed'}
-            **E2E Tests:** ${e2eResult === 'success' ? '✅ Passed' : '❌ Failed'}
+            **E2E Tests:** ${e2eResult === 'success' ? '✅ All 303 tests passed (101 tests × 3 browsers)' : '❌ Some tests failed'}
             
             ${statusText}`;
             

@@ -19,6 +19,10 @@ if [ -z "$DIRECT_URL" ]; then
   echo "📝 Setting DIRECT_URL to match DATABASE_URL"
 fi
 
+# Generate Prisma client
+echo "🔧 Generating Prisma client..."
+pnpm prisma generate
+
 # Run migrations first to ensure schema is up to date
 echo "📦 Running database migrations..."
 pnpm prisma migrate deploy

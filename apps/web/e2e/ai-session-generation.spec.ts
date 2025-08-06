@@ -39,11 +39,8 @@ test.describe('AI Session Generation E2E Tests', () => {
       // After authentication, we're on the dashboard
       await expect(page).toHaveURL('/dashboard')
       
-      // Check that we're on a page with expected content
-      await expect(page.locator('h1')).toBeVisible()
-      
-      // New users will see the app title or some content
-      await expect(page.locator('text=/Project Unify|Dashboard|Welcome/')).toBeVisible()
+      // Check that we're on a page (h1 with "Project Unify" is expected)
+      await expect(page.locator('h1:has-text("Project Unify")')).toBeVisible()
     })
 
     test.skip('should handle session generation with minimal data', async () => {

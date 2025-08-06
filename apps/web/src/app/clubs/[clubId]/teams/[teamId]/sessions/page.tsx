@@ -74,10 +74,10 @@ export default async function SessionsPage({ params }: SessionsPageProps) {
                 ) : (
                   <div className="space-y-3">
                     {sessions.slice(0, 5).map((session) => (
-                      <div
+                      <a
                         key={session.id}
-                        className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => window.location.href = `/clubs/${params.clubId}/sessions/${session.id}`}
+                        href={`/clubs/${params.clubId}/sessions/${session.id}`}
+                        className="block border border-gray-200 rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
                       >
                         <div className="flex justify-between items-start">
                           <div>
@@ -105,7 +105,7 @@ export default async function SessionsPage({ params }: SessionsPageProps) {
                             </span>
                           </div>
                         )}
-                      </div>
+                      </a>
                     ))}
                   </div>
                 )}

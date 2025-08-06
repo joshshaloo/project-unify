@@ -37,6 +37,22 @@ async function main() {
     }
   })
 
+  // Create test club for E2E tests
+  const testClub = await prisma.club.create({
+    data: {
+      id: 'test-club',
+      name: 'Test Club',
+      primaryColor: '#333333',
+      settings: {
+        timezone: 'America/Los_Angeles',
+        ageGroups: ['U8', 'U10', 'U12', 'U14'],
+        primaryColor: '#333333',
+        secondaryColor: '#666666'
+      },
+      subscription: 'trial'
+    }
+  })
+
   console.log('✅ Created clubs')
 
   // Create users
@@ -111,6 +127,14 @@ async function main() {
         clubId: club1.id,
         role: 'parent'
       }
+    }),
+    // Give alex access to test club for E2E tests
+    prisma.userClub.create({
+      data: {
+        userId: users[0].id, // alex@lightningfc.com
+        clubId: testClub.id,
+        role: 'head_coach'
+      }
     })
   ])
 
@@ -142,6 +166,17 @@ async function main() {
         name: 'Thunder U14 Elite',
         ageGroup: 'U14',
         skillLevel: 'advanced',
+        season: '2025-Spring'
+      }
+    }),
+    // Test team for E2E tests
+    prisma.team.create({
+      data: {
+        id: 'test-team',
+        clubId: testClub.id,
+        name: 'Test Team',
+        ageGroup: 'U12',
+        skillLevel: 'intermediate',
         season: '2025-Spring'
       }
     })

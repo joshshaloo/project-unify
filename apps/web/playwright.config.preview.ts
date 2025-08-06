@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: true,
   retries: 2,
-  workers: 1,
+  workers: undefined, // Use default workers for parallel execution
   reporter: 'html',
   use: {
     baseURL: 'https://preview.clubomatic.ai',

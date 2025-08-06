@@ -181,7 +181,20 @@
       "Bash(DATABASE_URL=\"postgresql://postgres:password@172.20.0.22:5435/soccer\" pnpm db:seed)",
       "Bash(PGPASSWORD=postgres psql -h 172.20.0.22 -p 5435 -U postgres soccer -c \"SELECT COUNT(*) FROM \"\"Club\"\";\")",
       "Bash(DATABASE_URL=\"postgresql://postgres:localpassword@localhost:5433/soccer\" pnpm prisma migrate deploy)",
-      "Bash(DATABASE_URL=\"postgresql://postgres:localpassword@localhost:5433/soccer\" pnpm db:seed)"
+      "Bash(DATABASE_URL=\"postgresql://postgres:localpassword@localhost:5433/soccer\" pnpm db:seed)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts \"api.spec.ts\" --reporter=list)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts \"dashboard.spec.ts\" --reporter=list)",
+      "Bash(PGPASSWORD=postgres psql -h 172.20.0.22 -p 5435 -U postgres soccer -c \"SELECT COUNT(*) FROM \"\"Club\"\";\")",
+      "Bash(pnpm prisma migrate reset:*)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts --list)",
+      "Bash(timeout 30 pnpm playwright test:*)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts dashboard.spec.ts --reporter=list)",
+      "Bash(TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts dashboard.spec.ts:14 --project=chromium --reporter=list)",
+      "Bash(PGPASSWORD=postgres psql -h 172.20.0.22 -p 5435 -U postgres soccer -c \"SELECT COUNT(*) FROM \"\"User\"\";\")",
+      "Bash(for file in e2e/*.spec.ts)",
+      "Bash(do echo \"$file:\")",
+      "Bash(done)",
+      "Bash(source:*)"
     ],
     "deny": []
   },

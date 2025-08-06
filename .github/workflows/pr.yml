@@ -189,8 +189,7 @@ jobs:
         working-directory: apps/web
       
       - name: Run E2E tests against preview (all browsers)
-        run: pnpm playwright test --config=playwright.config.preview.ts --reporter=list
-        working-directory: apps/web
+        run: make test-preview
         env:
           TEST_ENV: preview
           MAILHOG_URL: https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog
@@ -231,7 +230,7 @@ jobs:
             const body = `## ${statusEmoji} PR Status Update
             
             **Build & Validation:** ${buildResult === 'success' ? '✅ Passed' : '❌ Failed'}
-            **E2E Tests:** ${e2eResult === 'success' ? '✅ All 303 tests passed (101 tests × 3 browsers)' : '❌ Some tests failed'}
+            **E2E Tests:** ${e2eResult === 'success' ? '✅ All tests passed' : '❌ Some tests failed'}
             
             ${statusText}`;
             

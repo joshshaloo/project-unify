@@ -115,7 +115,7 @@ test-preview:
 	@$(PRINT) "$(CYAN)🧪 Running E2E tests against preview environment...$(NC)\n"
 	@$(PRINT) "$(YELLOW)Target: https://preview.clubomatic.ai$(NC)\n"
 	@$(PRINT) "$(YELLOW)MailHog: https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog/$(NC)\n"
-	@cd apps/web && TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts --grep-invert "AI Session|API Tests" --reporter=list
+	@cd apps/web && TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts --reporter=list
 
 #
 # ✅ Validation

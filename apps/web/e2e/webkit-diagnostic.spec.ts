@@ -12,7 +12,8 @@ test.describe('Webkit Diagnostic Tests', () => {
     console.log(`Using email: ${testEmail}`)
     
     // Check initial MailHog state
-    const initialResponse = await fetch('http://localhost:8025/api/v2/messages')
+    const mailhogUrl = process.env.MAILHOG_URL || 'http://localhost:8025'
+    const initialResponse = await fetch(`${mailhogUrl}/api/v2/messages`)
     const initialData = await initialResponse.json()
     const initialCount = initialData.items?.length || 0
     console.log(`Initial MailHog messages: ${initialCount}`)
@@ -92,7 +93,7 @@ test.describe('Webkit Diagnostic Tests', () => {
     
     // Check final MailHog state
     await page.waitForTimeout(2000)
-    const finalResponse = await fetch('http://localhost:8025/api/v2/messages')
+    const finalResponse = await fetch(`${mailhogUrl}/api/v2/messages`)
     const finalData = await finalResponse.json()
     const finalCount = finalData.items?.length || 0
     console.log(`Final MailHog messages: ${finalCount}`)

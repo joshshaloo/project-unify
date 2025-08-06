@@ -54,7 +54,10 @@ test.describe.serial('MailHog Integration Test', () => {
     const magicLink = mailhog.extractMagicLink(message!)
     expect(magicLink).toBeTruthy()
     expect(magicLink).toContain('/auth/verify?token=')
-    expect(magicLink).toContain(':3000') // Should have correct port
+    // Port check depends on environment
+    if (process.env.TEST_ENV !== 'preview') {
+      expect(magicLink).toContain(':3001') // Local dev port
+    }
     
     // Navigate to magic link
     try {
@@ -80,7 +83,9 @@ test.describe.serial('MailHog Integration Test', () => {
         
         // Verify the magic link was at least extracted correctly
         expect(magicLink).toContain('/auth/verify?token=')
-        expect(magicLink).toContain(':3000')
+        if (process.env.TEST_ENV !== 'preview') {
+          expect(magicLink).toContain(':3001')
+        }
       } else {
         throw error
       }

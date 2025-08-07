@@ -8,9 +8,12 @@ const prisma = new PrismaClient({
 async function main() {
   console.log('🌱 Starting seed...')
 
-  // Create clubs
-  const club1 = await prisma.club.create({
-    data: {
+  // Create or update clubs
+  const club1 = await prisma.club.upsert({
+    where: { id: 'lightning-fc' },
+    update: {},
+    create: {
+      id: 'lightning-fc',
       name: 'Lightning FC',
       primaryColor: '#FF6B6B',
       settings: {
@@ -23,8 +26,11 @@ async function main() {
     }
   })
 
-  const club2 = await prisma.club.create({
-    data: {
+  const club2 = await prisma.club.upsert({
+    where: { id: 'thunder-united' },
+    update: {},
+    create: {
+      id: 'thunder-united',
       name: 'Thunder United',
       primaryColor: '#4ECDC4',
       settings: {
@@ -37,9 +43,11 @@ async function main() {
     }
   })
 
-  // Create test club for E2E tests
-  const testClub = await prisma.club.create({
-    data: {
+  // Create or update test club for E2E tests
+  const testClub = await prisma.club.upsert({
+    where: { id: 'test-club' },
+    update: {},
+    create: {
       id: 'test-club',
       name: 'Test Club',
       primaryColor: '#333333',
@@ -53,12 +61,14 @@ async function main() {
     }
   })
 
-  console.log('✅ Created clubs')
+  console.log('✅ Created/updated clubs')
 
-  // Create users
+  // Create or update users
   const users = await Promise.all([
-    prisma.user.create({
-      data: {
+    prisma.user.upsert({
+      where: { email: 'alex@lightningfc.com' },
+      update: {},
+      create: {
         email: 'alex@lightningfc.com',
         name: 'Alex Thompson',
         supabaseId: 'sup_alex123',
@@ -70,24 +80,30 @@ async function main() {
         }
       }
     }),
-    prisma.user.create({
-      data: {
+    prisma.user.upsert({
+      where: { email: 'sam@lightningfc.com' },
+      update: {},
+      create: {
         email: 'sam@lightningfc.com',
         name: 'Sam Wilson',
         supabaseId: 'sup_sam456',
         onboardingCompleted: true
       }
     }),
-    prisma.user.create({
-      data: {
+    prisma.user.upsert({
+      where: { email: 'jordan@thunderunited.com' },
+      update: {},
+      create: {
         email: 'jordan@thunderunited.com',
         name: 'Jordan Lee',
         supabaseId: 'sup_jordan789',
         onboardingCompleted: true
       }
     }),
-    prisma.user.create({
-      data: {
+    prisma.user.upsert({
+      where: { email: 'parent@example.com' },
+      update: {},
+      create: {
         email: 'parent@example.com',
         name: 'Sarah Johnson',
         supabaseId: 'sup_parent123',
@@ -96,41 +112,76 @@ async function main() {
     })
   ])
 
-  console.log('✅ Created users')
+  console.log('✅ Created/updated users')
 
-  // Create user-club relationships
+  // Create or update user-club relationships
   await Promise.all([
-    prisma.userClub.create({
-      data: {
+    prisma.userClub.upsert({
+      where: {
+        userId_clubId: {
+          userId: users[0].id,
+          clubId: club1.id
+        }
+      },
+      update: {},
+      create: {
         userId: users[0].id,
         clubId: club1.id,
         role: 'head_coach'
       }
     }),
-    prisma.userClub.create({
-      data: {
+    prisma.userClub.upsert({
+      where: {
+        userId_clubId: {
+          userId: users[1].id,
+          clubId: club1.id
+        }
+      },
+      update: {},
+      create: {
         userId: users[1].id,
         clubId: club1.id,
         role: 'assistant_coach'
       }
     }),
-    prisma.userClub.create({
-      data: {
+    prisma.userClub.upsert({
+      where: {
+        userId_clubId: {
+          userId: users[2].id,
+          clubId: club2.id
+        }
+      },
+      update: {},
+      create: {
         userId: users[2].id,
         clubId: club2.id,
         role: 'admin'
       }
     }),
-    prisma.userClub.create({
-      data: {
+    prisma.userClub.upsert({
+      where: {
+        userId_clubId: {
+          userId: users[3].id,
+          clubId: club1.id
+        }
+      },
+      update: {},
+      create: {
         userId: users[3].id,
         clubId: club1.id,
         role: 'parent'
       }
     }),
     // Give alex access to test club for E2E tests
-    prisma.userClub.create({
-      data: {
+    prisma.userClub.upsert({
+      where: {
+        userId_clubId: {
+          userId: users[0].id, // alex@lightningfc.com
+          clubId: testClub.id
+        }
+      },
+      update: {},
+      create: {
         userId: users[0].id, // alex@lightningfc.com
         clubId: testClub.id,
         role: 'head_coach'
@@ -138,12 +189,17 @@ async function main() {
     })
   ])
 
-  console.log('✅ Created user-club relationships')
+  console.log('✅ Created/updated user-club relationships')
 
-  // Create teams
+  // Create or update teams
   const teams = await Promise.all([
-    prisma.team.create({
-      data: {
+    prisma.team.upsert({
+      where: { 
+        id: 'lightning-u10-boys' 
+      },
+      update: {},
+      create: {
+        id: 'lightning-u10-boys',
         clubId: club1.id,
         name: 'Lightning U10 Boys',
         ageGroup: 'U10',
@@ -151,8 +207,13 @@ async function main() {
         season: '2025-Spring'
       }
     }),
-    prisma.team.create({
-      data: {
+    prisma.team.upsert({
+      where: { 
+        id: 'lightning-u12-girls'
+      },
+      update: {},
+      create: {
+        id: 'lightning-u12-girls',
         clubId: club1.id,
         name: 'Lightning U12 Girls',
         ageGroup: 'U12',
@@ -160,8 +221,13 @@ async function main() {
         season: '2025-Spring'
       }
     }),
-    prisma.team.create({
-      data: {
+    prisma.team.upsert({
+      where: { 
+        id: 'thunder-u14-elite'
+      },
+      update: {},
+      create: {
+        id: 'thunder-u14-elite',
         clubId: club2.id,
         name: 'Thunder U14 Elite',
         ageGroup: 'U14',
@@ -170,8 +236,12 @@ async function main() {
       }
     }),
     // Test team for E2E tests
-    prisma.team.create({
-      data: {
+    prisma.team.upsert({
+      where: { 
+        id: 'test-team'
+      },
+      update: {},
+      create: {
         id: 'test-team',
         clubId: testClub.id,
         name: 'Test Team',
@@ -182,12 +252,15 @@ async function main() {
     })
   ])
 
-  console.log('✅ Created teams')
+  console.log('✅ Created/updated teams')
 
-  // Create players
+  // Create or update players
   const players = await Promise.all([
-    prisma.player.create({
-      data: {
+    prisma.player.upsert({
+      where: { id: 'player-michael-chen' },
+      update: {},
+      create: {
+        id: 'player-michael-chen',
         teamId: teams[0].id,
         name: 'Michael Chen',
         dateOfBirth: new Date('2015-03-15'),
@@ -195,8 +268,11 @@ async function main() {
         jerseyNumber: '8'
       }
     }),
-    prisma.player.create({
-      data: {
+    prisma.player.upsert({
+      where: { id: 'player-lucas-rodriguez' },
+      update: {},
+      create: {
+        id: 'player-lucas-rodriguez',
         teamId: teams[0].id,
         name: 'Lucas Rodriguez',
         dateOfBirth: new Date('2015-06-22'),
@@ -205,8 +281,11 @@ async function main() {
         userId: users[3].id // Parent user
       }
     }),
-    prisma.player.create({
-      data: {
+    prisma.player.upsert({
+      where: { id: 'player-emma-wilson' },
+      update: {},
+      create: {
+        id: 'player-emma-wilson',
         teamId: teams[1].id,
         name: 'Emma Wilson',
         dateOfBirth: new Date('2013-09-10'),
@@ -216,12 +295,15 @@ async function main() {
     })
   ])
 
-  console.log('✅ Created players')
+  console.log('✅ Created/updated players')
 
-  // Create drills
+  // Create or update drills
   const drills = await Promise.all([
-    prisma.drill.create({
-      data: {
+    prisma.drill.upsert({
+      where: { id: 'drill-triangle-passing' },
+      update: {},
+      create: {
+        id: 'drill-triangle-passing',
         clubId: club1.id,
         name: 'Triangle Passing',
         category: 'technical',
@@ -258,8 +340,11 @@ async function main() {
         isPublic: true
       }
     }),
-    prisma.drill.create({
-      data: {
+    prisma.drill.upsert({
+      where: { id: 'drill-4v4-possession' },
+      update: {},
+      create: {
+        id: 'drill-4v4-possession',
         name: '4v4 Possession',
         category: 'tactical',
         difficulty: 'intermediate',
@@ -293,15 +378,18 @@ async function main() {
     })
   ])
 
-  console.log('✅ Created drills')
+  console.log('✅ Created/updated drills')
 
-  // Create sessions
+  // Create or update sessions
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
 
   const sessions = await Promise.all([
-    prisma.session.create({
-      data: {
+    prisma.session.upsert({
+      where: { id: 'session-technical-skills' },
+      update: {},
+      create: {
+        id: 'session-technical-skills',
         clubId: club1.id,
         teamId: teams[0].id,
         createdByUserId: users[0].id,
@@ -330,11 +418,14 @@ async function main() {
     })
   ])
 
-  console.log('✅ Created sessions')
+  console.log('✅ Created/updated sessions')
 
-  // Create session template
-  await prisma.sessionTemplate.create({
-    data: {
+  // Create or update session template
+  await prisma.sessionTemplate.upsert({
+    where: { id: 'template-u10-technical' },
+    update: {},
+    create: {
+      id: 'template-u10-technical',
       clubId: club1.id,
       name: 'U10 Technical Development',
       description: 'Standard template for U10 technical skill development',
@@ -351,11 +442,14 @@ async function main() {
     }
   })
 
-  console.log('✅ Created session template')
+  console.log('✅ Created/updated session template')
 
-  // Create curriculum
-  await prisma.curriculum.create({
-    data: {
+  // Create or update curriculum
+  await prisma.curriculum.upsert({
+    where: { id: 'curriculum-us-soccer-u10' },
+    update: {},
+    create: {
+      id: 'curriculum-us-soccer-u10',
       name: 'US Soccer Grassroots U10',
       federation: 'US Soccer',
       ageGroup: 'U10',
@@ -382,7 +476,7 @@ async function main() {
     }
   })
 
-  console.log('✅ Created curriculum')
+  console.log('✅ Created/updated curriculum')
   console.log('🎉 Seed completed!')
 }
 

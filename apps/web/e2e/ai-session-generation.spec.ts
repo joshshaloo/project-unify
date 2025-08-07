@@ -54,8 +54,12 @@ test.describe('AI Session Generation Form Tests', () => {
     })
 
     test('should prevent past date selection', async () => {
+      // Wait for form to be fully loaded
+      await page.waitForLoadState('networkidle')
+      
       // The date input has a min attribute that prevents past dates
       const dateInput = page.locator('input[name="date"]')
+      await dateInput.waitFor({ state: 'visible' })
       
       // Check that min attribute is set to today's date
       const today = new Date().toISOString().split('T')[0]
@@ -77,6 +81,9 @@ test.describe('AI Session Generation Form Tests', () => {
       // Try to submit - browser should prevent submission
       await page.click('button[type="submit"]')
       
+      // Wait a moment for any navigation that might occur
+      await page.waitForTimeout(500)
+      
       // Check that we're still on the same page (form didn't submit)
       await expect(page).toHaveURL(/\/clubs\/.*\/teams\/.*\/sessions/)
       
@@ -86,8 +93,16 @@ test.describe('AI Session Generation Form Tests', () => {
     })
 
     test('should validate individual required fields', async () => {
+      // Wait for form to be fully loaded
+      await page.waitForLoadState('networkidle')
+      
       // HTML5 validation prevents submission with missing fields
       // Test that browser's constraint validation API works
+      
+      // Ensure all form fields are visible before interacting
+      await page.locator('input[name="time"]').waitFor({ state: 'visible' })
+      await page.locator('select[name="duration"]').waitFor({ state: 'visible' })
+      await page.locator('select[name="sessionType"]').waitFor({ state: 'visible' })
       
       // Try to submit with only some fields filled
       await page.fill('input[name="time"]', '15:00')
@@ -96,6 +111,9 @@ test.describe('AI Session Generation Form Tests', () => {
       
       // Date is still empty, so form shouldn't submit
       await page.click('button[type="submit"]')
+      
+      // Wait a moment for any navigation that might occur
+      await page.waitForTimeout(500)
       
       // Verify we're still on the same page
       await expect(page).toHaveURL(/\/clubs\/.*\/teams\/.*\/sessions/)

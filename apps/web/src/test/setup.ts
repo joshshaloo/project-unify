@@ -91,7 +91,7 @@ vi.mock('next/headers', () => ({
 
 // Mock React DOM hooks for server actions
 vi.mock('react-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-dom')>('react-dom')
+  const actual = await vi.importActual('react-dom')
   return {
     ...actual,
     useFormState: vi.fn((action, initialState) => {

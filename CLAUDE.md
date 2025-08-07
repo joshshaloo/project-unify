@@ -6,183 +6,222 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Youth Soccer AI Platform - A Next.js full-stack application that empowers youth soccer coaches with AI-driven training plans. The project uses a monorepo structure with Turborepo and is deployed using Docker containers orchestrated by Docker Swarm and managed via Portainer.
 
-## Key Commands
+## Developer Workflow - ALWAYS USE MAKE COMMANDS
 
-### Development
+The Makefile is the single UI for all developer interactions. Never run pnpm, docker, or other commands directly.
+
+### Daily Development
 ```bash
-# Start all services (web app + hot reload)
-pnpm dev
+# Start everything locally (Docker + all services)
+make dev
 
-# Run specific app in dev mode
-pnpm --filter @soccer/web dev
+# View logs
+make logs                # All logs
+make logs s=web         # Specific service logs
+
+# Stop everything
+make stop
+
+# Enter container shell
+make shell              # Default to web container
+make shell s=postgres   # Specific service
+
+# Connect to database
+make db
+```
+
+### Before Pushing Code
+```bash
+# ALWAYS run this before committing - runs same checks as CI
+make validate
+
+# This runs in Docker:
+# - Dependency installation
+# - Prisma generation  
+# - Linting
+# - Type checking
+# - Unit tests
+# - Integration tests
+# - Production build
 ```
 
 ### Testing
 ```bash
-# Run all tests
-pnpm test
+# Run tests in Docker (matches CI exactly)
+make test
 
-# Run unit tests with coverage
-pnpm test:coverage
-
-# Run E2E tests with Playwright
-pnpm test:e2e
-
-# Run E2E tests with UI
-pnpm test:e2e:ui
-
-# Run a single test file
-pnpm vitest run src/lib/auth/actions.test.ts
-
-# Run tests in watch mode
-pnpm vitest --watch
-
-# Run tests matching a pattern
-pnpm vitest run --testNamePattern="login"
+# Run tests locally on host (faster during development)
+make test-local
 ```
 
-### Database Operations
+### Deployment
+
+#### First Time Setup (Bootstrap)
 ```bash
-# Generate Prisma client
-pnpm db:generate
+# Create initial stacks in Portainer
+make bootstrap-preview
+make bootstrap-prod
 
-# Push schema changes to database (dev)
-pnpm db:push
-
-# Run migrations
-pnpm db:migrate
-
-# Seed database with test data
-pnpm db:seed
-
-# Open Prisma Studio
-pnpm db:studio
-
-# Apply Row Level Security policies
-pnpm --filter @soccer/web db:rls
+# After bootstrap:
+# 1. Log into Portainer
+# 2. Update all environment variables
+# 3. Remove CHANGE-ME placeholders
 ```
 
-### Build & Deployment
+#### Regular Deployments
 ```bash
-# Build all packages
-pnpm build
+# Build and push image
+make build              # Builds with automatic tag
+make push               # Pushes to ghcr.io
 
-# Type check
-pnpm typecheck
-
-# Lint
-pnpm lint
-
-# Clean all build artifacts
-pnpm clean
-
-# Build Docker image locally
-docker build -t soccer-web:latest .
-
-# Run local development with Docker Compose
-docker-compose -f docker-compose.dev.yml up
-
-# Deploy to production (via GitHub Actions)
-# Merging to main branch triggers automatic deployment
+# Deploy specific versions
+make deploy-preview TAG=develop-abc123
+make deploy-prod TAG=v1.2.3    # Requires confirmation
 ```
 
-## Architecture & Code Structure
+### Utility Commands
+```bash
+# Clean up Docker resources
+make clean
 
-### Tech Stack
-- **Frontend**: Next.js 14 with App Router, React Server Components, TypeScript
-- **Styling**: Tailwind CSS + Radix UI components
-- **Backend**: tRPC running inside Next.js API routes
-- **Database**: PostgreSQL via Supabase with Prisma ORM
-- **Authentication**: Supabase Auth with Row Level Security
-- **AI**: OpenAI GPT-4 via n8n workflow orchestration
-- **Testing**: Vitest (unit/integration) + Playwright (E2E)
-- **Deployment**: Docker containers with Docker Swarm orchestration
+# Login to GitHub Container Registry
+make docker-login
+
+# Check running services
+make status
+
+# Run database migrations
+make migrate
+
+# Seed database
+make seed
+```
+
+## Architecture & Infrastructure
+
+### Deployment Architecture
+- **Hosting**: Docker Swarm on homelab (172.20.0.22)
+- **Public Access**: Cloudflare Tunnel → Docker host ports
 - **Container Registry**: GitHub Container Registry (ghcr.io)
-- **Management**: Portainer for container orchestration
+- **Orchestration**: Portainer for stack management
+- **CI/CD Connection**: Tailscale VPN for GitHub → homelab
+
+### URLs and Ports
+
+#### Production (https://app.clubomatic.ai)
+- App: Port 3010
+- n8n: Port 5680 (https://n8n.clubomatic.ai)
+- PostgreSQL: Port 5434 (Tailnet only)
+
+#### Preview (https://preview.clubomatic.ai)
+- App: Port 3011
+- n8n: Port 5681 (https://preview-n8n.clubomatic.ai)
+- PostgreSQL: Port 5435 (Tailnet only)
+- MailHog: Port 8125 (Tailnet only)
+
+#### Local Development
+- App: Port 3001 (hot reload enabled)
+- PostgreSQL: Port 5433
+- MailHog: Port 8025
+- n8n: Port 5678
+
+### Database Access (Tailnet Only)
+```bash
+# Connect to preview database
+psql -h 172.20.0.22 -p 5435 -U postgres soccer
+
+# Connect to production database
+psql -h 172.20.0.22 -p 5434 -U postgres soccer
+```
 
 ### Key Architectural Patterns
 
-1. **Full-Stack Next.js**: Single deployment unit with API routes as backend
-   - All backend logic runs in `/apps/web/src/app/api/`
-   - tRPC router at `/apps/web/src/app/api/trpc/[trpc]/route.ts`
+1. **Single Dockerfile**: Root `/Dockerfile` with multi-stage build
+   - All validation happens in Docker
+   - Ensures local matches CI/CD exactly
 
-2. **Type-Safe API Layer**: tRPC provides end-to-end type safety
-   - Router definitions in `/apps/web/src/lib/trpc/routers/`
-   - Root router at `/apps/web/src/lib/trpc/root.ts`
-   - Client setup at `/apps/web/src/lib/trpc/client.ts`
+2. **Makefile as UI**: All commands go through make
+   - Developers never need to know Docker/pnpm details
+   - Same commands work locally and in CI
 
-3. **Multi-Tenant Architecture**: All data is scoped to clubs
-   - RLS policies enforce tenant isolation at database level
-   - User → UserClub → Club relationship model
+3. **Image Tagging Strategy**:
+   - `latest`: Production (main branch)
+   - `develop-SHA`: Develop branch
+   - `pr-NUMBER-SHA`: Pull requests
+   - `feature-SHA`: Feature branches
 
-4. **Server Actions**: Next.js server actions for forms
-   - Auth actions at `/apps/web/src/lib/auth/actions.ts`
-   - Always use `'use server'` directive
-
-5. **AI Agent System**: n8n workflows orchestrate 5 specialized agents
-   - Coach Winston (session planning)
-   - Scout Emma (player development)
-   - Physio Alex (health monitoring)
-   - Motivator Sam (engagement)
-   - Analyst Jordan (analytics)
+4. **Environment Separation**:
+   - Local: docker-compose.dev.yml
+   - Preview/Prod: docker-stack.*.yml via Portainer
 
 ### Critical Files & Patterns
 
-**Authentication Flow**:
-- `/apps/web/src/lib/supabase/server.ts` - Server-side Supabase client
-- `/apps/web/src/lib/supabase/client.ts` - Client-side Supabase client
-- `/apps/web/src/middleware.ts` - Auth middleware for protected routes
+**CI/CD Configuration**:
+- `/.github/workflows/ci.yml` - Main branch deployments
+- `/.github/workflows/pr.yml` - PR validation and preview
+- All workflows use make commands
 
-**Database Access**:
-- `/apps/web/prisma/schema.prisma` - Database schema
-- `/apps/web/src/lib/prisma.ts` - Prisma client singleton
-- Always use transactions for multi-table operations
+**Docker Setup**:
+- `/Dockerfile` - Multi-stage build with validation
+- `/docker-compose.dev.yml` - Local development
+- `/docker-stack.preview.yml` - Preview deployments
+- `/docker-stack.prod.yml` - Production deployments
 
-**Testing Patterns**:
-- Test setup at `/apps/web/src/test/setup.ts`
-- Mocks in `/apps/web/src/test/mocks/`
-- E2E tests in `/apps/web/e2e/`
-- 80% coverage threshold enforced for unit/integration tests
-
-**Environment Variables**:
-- Local: `/apps/web/.env.local`
-- Required: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- AI keys: `OPENAI_API_KEY`, `N8N_WEBHOOK_URL`
+**Developer Interface**:
+- `/Makefile` - All commands (simplified to essentials)
+- Type `make help` to see available commands
 
 ### Development Workflow
 
-1. **Feature Development**:
-   - Create feature branch from `main`
-   - Use server components by default, client components only when needed
-   - Follow existing patterns in similar files
-   - Run `pnpm typecheck` before committing
+1. **Start Work**:
+   ```bash
+   git checkout -b feature/your-feature
+   make dev
+   ```
 
-2. **Testing Requirements**:
-   - Write tests for new features
-   - Run `pnpm test` to ensure all pass
-   - E2E tests for critical user flows
-   - Mock external services (Supabase, Prisma) in unit tests
+2. **During Development**:
+   ```bash
+   make logs s=web      # Check logs
+   make shell           # Debug in container
+   make test-local      # Quick test runs
+   ```
 
-3. **PR Process**:
-   - GitHub Actions run all tests automatically
-   - Docker image built and pushed to GitHub Container Registry
-   - Preview deployment created via Portainer API
-   - E2E tests run against preview environment
-   - Requires passing tests + type check + lint
+3. **Before Committing**:
+   ```bash
+   make validate        # Run all CI checks
+   git add -A
+   git commit -m "feat: your feature"
+   git push
+   ```
 
-### BMAD Development Method
-
-This project uses the BMAD (Business-Minded Agile Development) method:
-- Stories located in `/docs/stories/`
-- When assigned a story, load files specified in `.bmad-core/core-config.yaml`
-- Follow the task execution order in the story file
-- Update only authorized sections (checkboxes, Dev Agent Record)
+4. **PR Process**:
+   - Push creates PR
+   - CI runs `make validate`
+   - Preview deployed to https://preview.clubomatic.ai
+   - E2E tests run automatically
 
 ### Common Gotchas
 
-1. **Prisma Client**: Always run `pnpm db:generate` after schema changes
-2. **Environment Variables**: Ensure all required vars are set before running
-3. **Type Errors**: Check generated types after API changes
-4. **Test Mocks**: Supabase client must return proper promise structure
-5. **Server Components**: Can't use hooks or browser APIs
-6. **RLS Policies**: Test with different user roles to ensure proper access
+1. **Always use make commands** - Never run docker/pnpm directly
+2. **Run `make validate` before pushing** - Catches issues early
+3. **Database ports** - Only accessible via Tailnet, not public
+4. **Preview environment** - Shared for all PRs
+5. **Environment variables** - Set in Portainer, not GitHub
+
+### Debugging Tips
+
+```bash
+# Container won't start?
+make logs
+
+# Database connection issues?
+make status
+make db
+
+# Tests failing locally but not in CI?
+make test  # Use Docker version like CI
+
+# Need to check what's deployed?
+docker service ls
+docker service ps soccer-preview_app
+```

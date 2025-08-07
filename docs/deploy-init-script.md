@@ -1,0 +1,58 @@
+# Deploy PostgreSQL Init Script
+
+The init-data.sh script needs to be copied to the shared volume before deploying the stack.
+
+## Steps:
+
+1. Copy the script to the shared volume:
+```bash
+scp scripts/init-data.sh docker@172.20.0.22:/mnt/truenas/docker_volumes/project-unity/config/
+```
+
+2. SSH to the server and verify:
+```bash
+ssh docker@172.20.0.22
+ls -la /mnt/truenas/docker_volumes/project-unity/config/init-data.sh
+```
+
+3. Make sure it's executable:
+```bash
+chmod +x /mnt/truenas/docker_volumes/project-unity/config/init-data.sh
+```
+
+## Required Secrets in Portainer:
+
+### Preview Environment:
+- `soccer_preview_postgres_password` - PostgreSQL superuser password
+- `soccer_preview_nextauth_secret` - NextAuth.js secret for sessions
+- `soccer_preview_app_db_password` - Application database user password
+- `soccer_preview_n8n_db_password` - n8n database user password
+
+### Production Environment:
+- `soccer_prod_postgres_password` - PostgreSQL superuser password
+- `soccer_prod_nextauth_secret` - NextAuth.js secret for sessions
+- `soccer_prod_smtp_password` - SMTP password for email sending
+- `soccer_prod_app_db_password` - Application database user password
+- `soccer_prod_n8n_db_password` - n8n database user password
+
+## What the script does:
+
+- Creates a user `appuser` with password from `app_db_password` secret
+- Creates a user `n8nuser` with password from `n8n_db_password` secret
+- Creates the `n8n` database (the `soccer` database is already created by POSTGRES_DB)
+- Grants full privileges on `soccer` database to `appuser`
+- Grants full privileges on `n8n` database to `n8nuser`
+
+## Database Access:
+
+Application:
+- User: `appuser`
+- Password: From `app_db_password` secret
+- Database: `soccer`
+
+n8n:
+- User: `n8nuser`
+- Password: From `n8n_db_password` secret
+- Database: `n8n`
+
+The postgres superuser still uses the password from the `postgres_password` secret.

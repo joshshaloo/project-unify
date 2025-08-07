@@ -32,7 +32,7 @@ export async function createInvitation({
   })
 
   // Generate the invitation URL
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3001'
   const inviteUrl = `${baseUrl}/auth/signup?invite=${invitation.token}`
 
   return {

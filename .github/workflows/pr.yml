@@ -1,0 +1,285 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Validate code through Docker
+  validate:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Validate
+        run: make validate
+
+  # Deploy PR preview (includes build & push)
+  deploy-pr-preview:
+    needs: validate
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+      
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install Python dependencies
+        run: pip install python-dotenv requests pyyaml urllib3
+      
+      - name: Deploy PR to Preview Environment
+        id: deploy
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+          PORTAINER_HOST: ${{ secrets.PORTAINER_HOST }}
+        run: |
+          # Deploy to shared preview environment
+          PREVIEW_URL="https://preview.clubomatic.ai"
+          
+          # Deploy with build and push included
+          make deploy-preview
+          
+          echo "preview-url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+      
+      - name: Wait for deployment
+        run: |
+          for i in {1..30}; do
+            if curl -f "${{ steps.deploy.outputs.preview-url }}/api/health" \
+              --connect-timeout 10 \
+              -k; then
+              echo "Deployment is ready!"
+              break
+            fi
+            echo "Waiting for deployment... ($i/30)"
+            sleep 10
+          done
+      
+      - name: Setup Node.js for seeding
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm for seeding
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies for seeding
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+      
+      - name: Seed preview database
+        run: |
+          cd apps/web
+          ../../scripts/seed-preview.sh
+        env:
+          DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+      
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.issue.number;
+            const previewUrl = '${{ steps.deploy.outputs.preview-url }}';
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Preview Deployment')
+            );
+            
+            const body = `## 🚀 Preview Deployment Ready!
+            
+            **Preview URL:** ${previewUrl}
+            **Image Tag:** pr-${prNumber}
+            
+            This PR has been deployed to the shared preview environment.`;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }
+
+  # Run E2E tests against PR preview
+  test-pr-preview:
+    needs: deploy-pr-preview
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Setup Tailscale for MailHog access
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+        working-directory: apps/web
+      
+      - name: Run E2E tests against preview (all browsers)
+        run: make test-preview
+        env:
+          TEST_ENV: preview
+          MAILHOG_URL: https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-test-results-${{ github.event.pull_request.number }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7
+
+  # Update PR status with all check results
+  update-pr-status:
+    needs: [validate, test-pr-preview]
+    if: always() && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Comment test results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const buildResult = '${{ needs.validate.result }}';
+            const e2eResult = '${{ needs.test-pr-preview.result }}';
+            
+            let statusEmoji = '✅';
+            let statusText = 'All checks passed!';
+            
+            if (buildResult === 'failure' || e2eResult === 'failure') {
+              statusEmoji = '❌';
+              statusText = 'Some checks failed';
+            }
+            
+            const body = `## ${statusEmoji} PR Status Update
+            
+            **Build & Validation:** ${buildResult === 'success' ? '✅ Passed' : '❌ Failed'}
+            **E2E Tests:** ${e2eResult === 'success' ? '✅ All tests passed' : '❌ Some tests failed'}
+            
+            ${statusText}`;
+            
+            // Find existing status comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const statusComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('PR Status Update')
+            );
+            
+            if (statusComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: statusComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # Clean up PR resources when closed
+  cleanup-pr-preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Note PR Closure
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "✅ PR #${PR_NUMBER} has been closed. Preview environment remains available for other PRs."
+      
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '✅ PR closed. The preview environment remains available for other PRs.'
+            });

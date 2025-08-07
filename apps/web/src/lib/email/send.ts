@@ -9,16 +9,20 @@ interface EmailOptions {
 
 // Create reusable transporter based on environment
 const createTransporter = () => {
-  if (process.env.NODE_ENV === 'production') {
+  // Check if we're using MailHog (preview environment)
+  const isMailHog = process.env.EMAIL_SERVER_HOST === 'mailhog' || 
+                    process.env.EMAIL_SERVER_PORT === '1025'
+  
+  if (process.env.NODE_ENV === 'production' && !isMailHog) {
     // Production: Use SendGrid, Resend, or other service
     return nodemailer.createTransport({
       host: process.env.EMAIL_SERVER_HOST || 'smtp.sendgrid.net',
       port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
       secure: false,
-      auth: {
+      auth: process.env.EMAIL_SERVER_USER ? {
         user: process.env.EMAIL_SERVER_USER,
         pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
+      } : undefined,
     })
   } else {
     // Development/Preview: Use MailHog or similar

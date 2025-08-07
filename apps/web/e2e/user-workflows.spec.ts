@@ -102,16 +102,7 @@ test.describe('Complete User Workflows', () => {
       // Check if session cookie was set
       const cookies = await context.cookies()
       const sessionCookie = cookies.find(c => c.name === 'session')
-      console.log('Session cookie after auth:', sessionCookie ? 'exists' : 'missing')
-      if (sessionCookie) {
-        console.log('Cookie details:', {
-          domain: sessionCookie.domain,
-          path: sessionCookie.path,
-          httpOnly: sessionCookie.httpOnly,
-          secure: sessionCookie.secure,
-          sameSite: sessionCookie.sameSite
-        })
-      }
+      expect(sessionCookie).toBeTruthy()
       
       // 5. Test session persistence by navigating to another protected route
       await page.goto('/clubs')
@@ -123,7 +114,6 @@ test.describe('Complete User Workflows', () => {
         // Check cookies again
         const cookiesAfter = await context.cookies()
         const sessionCookieAfter = cookiesAfter.find(c => c.name === 'session')
-        console.log('Session cookie after navigation:', sessionCookieAfter ? 'exists' : 'missing')
         
         // If redirected to login, the session is not persisting
         throw new Error('Session not maintained - redirected to login')
@@ -159,7 +149,6 @@ test.describe('Complete User Workflows', () => {
         await authenticateUser(page, testEmail)
       } catch (error) {
         // If authentication fails, log the error and try with a different email
-        console.log('First auth attempt failed:', error)
         const retryEmail = `logout-retry-${Date.now()}@example.com`
         await authenticateUser(page, retryEmail)
       }

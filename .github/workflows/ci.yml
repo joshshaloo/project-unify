@@ -1,9 +1,7 @@
-name: CI/CD Pipeline
+name: CI/CD - Main Branches
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
     branches: [main, develop]
 
 env:
@@ -11,57 +9,25 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Validate code through Docker
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
       
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8.15.1
-          
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-          
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        
-      - name: Generate Prisma types
-        run: |
-          cd apps/web
-          pnpm prisma generate
-        
-      - name: Type Check
-        run: pnpm typecheck
-        
-      - name: Lint
-        run: pnpm lint
-        
-      - name: Test
-        run: pnpm test
-        env:
-          CI: true
-        
-      - name: Build
-        run: pnpm build
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate
+        run: make validate
 
-  build-and-push:
+  # Deploy to appropriate environment (includes build & push)
+  deploy:
     needs: validate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     permissions:
       contents: read
       packages: write
-      
+    
     steps:
       - uses: actions/checkout@v4
       
@@ -69,107 +35,77 @@ jobs:
         uses: docker/setup-buildx-action@v3
         
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
       
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: runner
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
-    
-    steps:
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-          
-      - name: Deploy to Preview
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install Python dependencies
+        run: pip install python-dotenv requests pyyaml urllib3
+      
+      - name: Deploy to Preview (develop branch)
         if: github.ref == 'refs/heads/develop'
-        run: |
-          curl -X POST \
-            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}",
-              "env": "preview"
-            }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-preview/update
-            
-      - name: Deploy to Production
+        env:
+          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+          PORTAINER_HOST: ${{ secrets.PORTAINER_HOST }}
+        run: make deploy-preview
+      
+      - name: Deploy to Production (main branch)
         if: github.ref == 'refs/heads/main'
+        env:
+          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+          PORTAINER_HOST: ${{ secrets.PORTAINER_HOST }}
         run: |
-          curl -X POST \
-            -H "X-API-Key: ${{ secrets.PORTAINER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest",
-              "env": "production"
-            }' \
-            https://portainer.homelab.internal:9443/api/stacks/soccer-prod/update
+          # Auto-confirm for CI
+          echo "deploy" | make deploy-prod
 
+  # Run E2E tests against deployed environment
   e2e-tests:
     needs: deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
     
     steps:
       - uses: actions/checkout@v4
       
-      - uses: pnpm/action-setup@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
         with:
           version: 8
-          
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-          
-      - run: pnpm install --frozen-lockfile
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/web
       
-      - name: Wait for deployment
-        run: |
-          for i in {1..30}; do
-            if curl -f "https://preview.soccer-unify.com/api/health" --connect-timeout 10; then
-              echo "Deployment is ready!"
-              break
-            fi
-            echo "Waiting for deployment... ($i/30)"
-            sleep 10
-          done
-        
       - name: Run E2E tests
-        run: pnpm test:e2e
+        run: pnpm test:e2e --project=chromium
         working-directory: apps/web
         env:
-          PLAYWRIGHT_BASE_URL: https://preview.soccer-unify.com
+          PLAYWRIGHT_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://app.clubomatic.ai' || 'https://preview.clubomatic.ai' }}
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results-${{ github.sha }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7

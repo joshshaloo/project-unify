@@ -3,7 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import type { NextAuthConfig } from "next-auth"
 import Nodemailer from "next-auth/providers/nodemailer"
-import { Adapter } from "next-auth/adapters"
+import type { Adapter } from "next-auth/adapters"
 
 // Debug: Check if prisma client is properly initialized
 console.log("Prisma client models:", Object.keys(prisma))
@@ -12,7 +12,14 @@ export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     Nodemailer({
-      server: `smtp://${process.env.EMAIL_SERVER_HOST || "mailhog"}:${process.env.EMAIL_SERVER_PORT || 1025}`,
+      server: {
+        host: process.env.EMAIL_SERVER_HOST || "mailhog",
+        port: parseInt(process.env.EMAIL_SERVER_PORT || "1025"),
+        auth: process.env.EMAIL_SERVER_USER ? {
+          user: process.env.EMAIL_SERVER_USER,
+          pass: process.env.EMAIL_SERVER_PASSWORD,
+        } : undefined,
+      },
       from: process.env.EMAIL_FROM || "noreply@soccer-unify.local",
     }),
   ],

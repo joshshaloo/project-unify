@@ -367,9 +367,10 @@ describe('N8NClient', () => {
   })
 
   describe('singleton instance', () => {
-    it('should export a singleton instance', () => {
+    it('should export a singleton instance', async () => {
       // Need to re-import after setting env var
-      const { n8nClient } = require('./n8n-client')
+      const n8nClientModule = await import('./n8n-client')
+      const { n8nClient } = n8nClientModule
       expect(n8nClient).toBeInstanceOf(N8NClient)
     })
   })

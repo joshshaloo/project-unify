@@ -1,436 +1,284 @@
-# Project Unify - Developer Experience Makefile
-# ============================================
-# Design Principles:
-# - Intuitive: Commands are what you'd naturally type
-# - Helpful: Always show next steps and current state
-# - Safe: Confirmations for destructive operations
-# - Fast: Common tasks are short to type
-# - Delightful: Clear feedback and friendly messages
+# Soccer Project Unify - Developer Makefile
+# =========================================
+# Simple, intuitive commands for common developer tasks
+# Everything else handled behind the scenes
 
-# Default shell
+# Configuration
 SHELL := /bin/bash
+.DEFAULT_GOAL := help
 
-# Colors for beautiful output
+# Colors (use printf for compatibility)
 CYAN := \033[0;36m
 GREEN := \033[0;32m
 YELLOW := \033[0;33m
 RED := \033[0;31m
-NC := \033[0m # No Color
+NC := \033[0m
 BOLD := \033[1m
+PRINT := printf
 
-# Project info
-PROJECT_NAME := Soccer Project Unify
+# Project settings
+REGISTRY := ghcr.io
+IMAGE_NAME := $(REGISTRY)/joshshaloo/soccer/project-unify
+GIT_SHA := $(shell git rev-parse --short HEAD)
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 
-# Environment detection
-ENV ?= dev
-ifeq ($(ENV),prod)
-	STACK_FILE := docker-stack.prod.yml
-	ENV_NAME := Production
-	URL := https://soccer-unify.com
-else ifeq ($(ENV),preview)
-	STACK_FILE := docker-stack.preview.yml
-	ENV_NAME := Preview
-	URL := https://preview.soccer-unify.com
-else
-	STACK_FILE := docker-compose.dev.yml
-	ENV_NAME := Development
-	URL := http://localhost:3001
-endif
-
-# Default target - show help
-.DEFAULT_GOAL := help
+# Determine image tag (always use commit SHA)
+TAG ?= $(GIT_SHA)
 
 #
-# 🚀 Quick Start Commands
+# 📚 Help
 #
 
-## help: Show this beautiful help message
+## help: Show available commands
 .PHONY: help
 help:
-	@echo ""
-	@echo "$(BOLD)$(CYAN)⚽ $(PROJECT_NAME) - Developer Commands$(NC)"
-	@echo "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
-	@echo ""
-	@echo "$(BOLD)🚀 Quick Start$(NC)"
-	@echo "  $(GREEN)make start$(NC)          - Start everything (auto-detects environment)"
-	@echo "  $(GREEN)make stop$(NC)           - Stop everything gracefully"
-	@echo "  $(GREEN)make restart$(NC)        - Restart everything"
-	@echo "  $(GREEN)make status$(NC)         - Show what's running"
-	@echo ""
-	@echo "$(BOLD)💻 Development$(NC)"
-	@echo "  $(GREEN)make dev$(NC)            - Start everything + Next.js dev server"
-	@echo "  $(GREEN)make stop-web$(NC)       - Stop just the Next.js dev server"
-	@echo "  $(GREEN)make logs$(NC)           - Show logs (use s=service for specific)"
-	@echo "  $(GREEN)make shell$(NC)          - Enter app container (use s=service)"
-	@echo "  $(GREEN)make db$(NC)             - Connect to database"
-	@echo "  $(GREEN)make test$(NC)           - Run all tests"
-	@echo "  $(GREEN)make test-unit$(NC)      - Run unit tests only"
-	@echo "  $(GREEN)make test-e2e$(NC)       - Run E2E tests only"
-	@echo ""
-	@echo "$(BOLD)🏗️  Build & Deploy$(NC)"
-	@echo "  $(GREEN)make build$(NC)          - Build production images"
-	@echo "  $(GREEN)make deploy$(NC)         - Deploy to current ENV (dev/preview/prod)"
-	@echo "  $(GREEN)make preview$(NC)        - Deploy to preview environment"
-	@echo "  $(GREEN)make prod$(NC)           - Deploy to production (with confirmation)"
-	@echo ""
-	@echo "$(BOLD)🗄️  Database$(NC)"
-	@echo "  $(GREEN)make migrate$(NC)        - Run database migrations"
-	@echo "  $(GREEN)make seed$(NC)           - Seed database with test data"
-	@echo "  $(GREEN)make db-reset$(NC)       - Reset database (with confirmation)"
-	@echo "  $(GREEN)make backup$(NC)         - Backup database"
-	@echo "  $(GREEN)make restore$(NC)        - Restore database from backup"
-	@echo ""
-	@echo "$(BOLD)🧹 Maintenance$(NC)"
-	@echo "  $(GREEN)make clean$(NC)          - Clean up containers and volumes"
-	@echo "  $(GREEN)make update$(NC)         - Update all dependencies"
-	@echo "  $(GREEN)make health$(NC)         - Health check all services"
-	@echo ""
-	@echo "$(YELLOW)Current Environment: $(BOLD)$(ENV_NAME)$(NC) (ENV=$(ENV))"
-	@echo "$(YELLOW)URL: $(BOLD)$(URL)$(NC)"
-	@echo ""
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)$(CYAN)⚽ Soccer Project Unify$(NC)\n"
+	@$(PRINT) "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Daily Development$(NC)\n"
+	@$(PRINT) "  $(GREEN)make dev$(NC)            - Start everything locally\n"
+	@$(PRINT) "  $(GREEN)make stop$(NC)           - Stop everything\n"
+	@$(PRINT) "  $(GREEN)make logs$(NC)           - View logs (use s=service for specific)\n"
+	@$(PRINT) "  $(GREEN)make test$(NC)           - Run tests in Docker\n"
+	@$(PRINT) "  $(GREEN)make test-e2e$(NC)       - Run E2E tests locally\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Before Pushing Code$(NC)\n"
+	@$(PRINT) "  $(GREEN)make validate$(NC)       - Run all CI checks locally\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Utilities$(NC)\n"
+	@$(PRINT) "  $(GREEN)make db$(NC)             - Connect to database\n"
+	@$(PRINT) "  $(GREEN)make shell$(NC)          - Enter container shell\n"
+	@$(PRINT) "  $(GREEN)make clean$(NC)          - Clean up resources\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(BOLD)Deployment (Usually Automatic)$(NC)\n"
+	@$(PRINT) "  $(GREEN)make deploy-preview$(NC) - Deploy to preview (needs TAG=...)\n"
+	@$(PRINT) "  $(GREEN)make deploy-prod$(NC)    - Deploy to production (needs TAG=...)\n"
+	@$(PRINT) "\n"
 
-## start: Start everything
-.PHONY: start
-start:
-	@echo "$(CYAN)🚀 Starting $(ENV_NAME) environment...$(NC)"
-ifeq ($(ENV),dev)
-	@docker compose -f docker-compose.dev.yml up -d
-	@echo "$(GREEN)✓ Services started!$(NC)"
-	@echo ""
-	@echo "$(YELLOW)📝 Next steps:$(NC)"
-	@echo "  1. Run $(BOLD)make logs$(NC) to see service logs"
-	@echo "  2. Run $(BOLD)make dev$(NC) to start everything in Docker"
-	@echo "  3. Application will be available at $(BOLD)http://localhost:3001$(NC)"
-	@echo ""
-	@echo "$(CYAN)📧 MailHog UI: http://localhost:8025$(NC)"
-	@echo "$(CYAN)🔄 n8n UI: http://localhost:5678$(NC)"
-else
-	@docker stack deploy -c $(STACK_FILE) project-unify-$(ENV)
-	@echo "$(GREEN)✓ Stack deployed to $(ENV_NAME)!$(NC)"
-	@echo "$(YELLOW)Check status with: make status$(NC)"
-endif
+#
+# 🚀 Daily Development
+#
 
-## stop: Stop everything gracefully
+## dev: Start everything locally
+.PHONY: dev
+dev:
+	@$(PRINT) "$(CYAN)🚀 Starting development environment...$(NC)\n"
+	@docker compose -f docker-compose.dev.yml up -d --build
+	@$(PRINT) "\n"
+	@$(PRINT) "$(GREEN)✓ Development environment started!$(NC)\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(CYAN)🌐 Application: http://localhost:3001$(NC)\n"
+	@$(PRINT) "$(CYAN)📧 MailHog: http://localhost:8025$(NC)\n"
+	@$(PRINT) "$(CYAN)🔄 n8n: http://localhost:5678$(NC)\n"
+	@$(PRINT) "\n"
+	@$(PRINT) "$(YELLOW)View logs with: make logs$(NC)\n"
+
+## stop: Stop everything
 .PHONY: stop
 stop:
-	@echo "$(YELLOW)🛑 Stopping $(ENV_NAME) environment...$(NC)"
-	@# Kill any running Next.js dev servers
-	@pkill -f "next dev" 2>/dev/null || true
-ifeq ($(ENV),dev)
+	@$(PRINT) "$(YELLOW)🛑 Stopping development environment...$(NC)\n"
 	@docker compose -f docker-compose.dev.yml down
-else
-	@docker stack rm project-unify-$(ENV)
-endif
-	@echo "$(GREEN)✓ Stopped successfully$(NC)"
-
-## stop-web: Stop just the Next.js dev server
-.PHONY: stop-web
-stop-web:
-	@echo "$(YELLOW)🛑 Stopping Next.js dev server...$(NC)"
-	@pkill -f "next dev" 2>/dev/null || echo "$(YELLOW)No Next.js dev server running$(NC)"
-	@echo "$(GREEN)✓ Web server stopped$(NC)"
-
-## restart: Restart everything
-.PHONY: restart
-restart:
-	@$(MAKE) stop
-	@sleep 2
-	@$(MAKE) start
-
-## status: Show what's running
-.PHONY: status
-status:
-	@echo "$(CYAN)📊 $(ENV_NAME) Environment Status$(NC)"
-	@echo "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
-ifeq ($(ENV),dev)
-	@docker compose -f docker-compose.dev.yml ps
-else
-	@docker stack ps project-unify-$(ENV) --format "table {{.Name}}\t{{.Image}}\t{{.CurrentState}}\t{{.Ports}}"
-endif
-	@echo ""
-	@echo "$(GREEN)URL: $(BOLD)$(URL)$(NC)"
-
-#
-# 💻 Development Commands
-#
-
-## dev: Start development environment
-.PHONY: dev
-dev: ENV=dev
-dev:
-	@echo "$(CYAN)🚀 Starting development environment...$(NC)"
-	@# Kill any existing Next.js dev servers running outside Docker
 	@pkill -f "next dev" 2>/dev/null || true
-	@# Build and start all services including web app
-	@docker compose -f docker-compose.dev.yml up -d --build
-	@echo "$(GREEN)✓ All services started in Docker!$(NC)"
-	@echo ""
-	@echo "$(CYAN)🌐 Application: http://localhost:3001$(NC)"
-	@echo "$(CYAN)📧 MailHog UI: http://localhost:8025$(NC)"
-	@echo "$(CYAN)🔄 n8n UI: http://localhost:5678$(NC)"
-	@echo ""
-	@echo "$(YELLOW)💡 Hot reload is enabled - edit files and see changes instantly!$(NC)"
-	@echo "$(YELLOW)📋 View logs: make logs s=web$(NC)"
+	@$(PRINT) "$(GREEN)✓ Stopped$(NC)\n"
 
-## logs: Show logs (use s=service to filter)
+## logs: View logs (use s=service for specific service)
 .PHONY: logs
 logs:
 ifdef s
-	@echo "$(CYAN)📋 Logs for $(s)...$(NC)"
-ifeq ($(ENV),dev)
 	@docker compose -f docker-compose.dev.yml logs -f $(s)
 else
-	@docker service logs -f project-unify-$(ENV)_$(s)
-endif
-else
-	@echo "$(CYAN)📋 All logs...$(NC)"
-ifeq ($(ENV),dev)
 	@docker compose -f docker-compose.dev.yml logs -f
-else
-	@docker service logs -f project-unify-$(ENV)_app
-endif
 endif
 
-## shell: Enter container shell (use s=service)
-.PHONY: shell
-shell:
-	@echo "$(CYAN)🐚 Entering shell...$(NC)"
-ifdef s
-	@docker exec -it $$(docker ps -qf "name=$(s)") /bin/sh
-else
-ifeq ($(ENV),dev)
-	@docker exec -it $$(docker ps -qf "name=postgres") /bin/bash
-else
-	@docker exec -it $$(docker ps -qf "name=project-unify-$(ENV)_app") /bin/sh
-endif
-endif
+## test: Run tests in Docker
+.PHONY: test
+test:
+	@$(PRINT) "$(CYAN)🧪 Running tests in Docker...$(NC)\n"
+	@docker build --platform linux/amd64 --target tester \
+		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
+		--build-arg NEXTAUTH_SECRET="test-secret" \
+		--build-arg NEXTAUTH_URL="http://localhost:3000" \
+		-t test-runner . && \
+	docker rmi test-runner >/dev/null 2>&1
+	@$(PRINT) "$(GREEN)✓ Tests completed$(NC)\n"
+
+## test-local: Run tests on host (faster)
+.PHONY: test-local
+test-local:
+	@$(PRINT) "$(CYAN)🧪 Running tests locally...$(NC)\n"
+	@cd apps/web && pnpm test
+
+## test-e2e: Run E2E tests locally
+.PHONY: test-e2e
+test-e2e:
+	@$(PRINT) "$(CYAN)🧪 Running E2E tests locally...$(NC)\n"
+	@$(PRINT) "$(YELLOW)Checking local services...$(NC)\n"
+	@if ! docker ps | grep -q postgres; then \
+		$(PRINT) "$(YELLOW)Starting PostgreSQL...$(NC)\n"; \
+		docker run -d --name postgres-test -e POSTGRES_PASSWORD=localpassword -e POSTGRES_DB=soccer -p 5433:5432 postgres:15-alpine; \
+		sleep 3; \
+	fi
+	@if ! docker ps | grep -q mailhog; then \
+		$(PRINT) "$(YELLOW)Starting MailHog...$(NC)\n"; \
+		docker run -d --name mailhog-test -p 8025:8025 -p 1025:1025 mailhog/mailhog; \
+		sleep 2; \
+	fi
+	@$(PRINT) "$(GREEN)✓ Services ready$(NC)\n"
+	@cd apps/web && pnpm test:e2e --reporter=list
+
+## test-preview: Run e2e tests against preview environment
+.PHONY: test-preview
+test-preview:
+	@$(PRINT) "$(CYAN)🧪 Running E2E tests against preview environment...$(NC)\n"
+	@$(PRINT) "$(YELLOW)Target: https://preview.clubomatic.ai$(NC)\n"
+	@$(PRINT) "$(YELLOW)MailHog: https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog/$(NC)\n"
+	@cd apps/web && TEST_ENV=preview MAILHOG_URL=https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm playwright test --config=playwright.config.preview.ts --reporter=list
+
+#
+# ✅ Validation
+#
+
+## validate: Run all CI checks locally (same as GitHub Actions)
+.PHONY: validate
+validate:
+	@$(PRINT) "$(CYAN)🔍 Running CI validation locally...$(NC)\n"
+	@$(PRINT) "This runs the same checks as GitHub Actions\n"
+	@$(PRINT) "\n"
+	@docker build --platform linux/amd64 --target tester \
+		--build-arg DATABASE_URL="postgresql://postgres:password@localhost:5432/test" \
+		--build-arg NEXTAUTH_SECRET="test-secret" \
+		--build-arg NEXTAUTH_URL="http://localhost:3000" \
+		-t $(IMAGE_NAME):validate-$(GIT_SHA) . && \
+	echo "$(GREEN)✅ All validation checks passed!$(NC)" && \
+	docker rmi $(IMAGE_NAME):validate-$(GIT_SHA) >/dev/null 2>&1 || \
+	(echo "$(RED)❌ Validation failed!$(NC)" && exit 1)
+
+#
+# 🛠️ Utilities
+#
 
 ## db: Connect to database
 .PHONY: db
 db:
-	@echo "$(CYAN)🗄️  Connecting to $(ENV_NAME) database...$(NC)"
+	@$(PRINT) "$(CYAN)🗄️  Connecting to database...$(NC)\n"
 	@docker exec -it $$(docker ps -qf "name=postgres") psql -U postgres soccer
 
-## test: Run all tests
-.PHONY: test
-test:
-	@echo "$(CYAN)🧪 Running all tests...$(NC)"
-	@cd apps/web && pnpm test && pnpm test:e2e
-
-## test-unit: Run unit tests only
-.PHONY: test-unit
-test-unit:
-	@echo "$(CYAN)🧪 Running unit tests...$(NC)"
-	@cd apps/web && pnpm test
-
-## test-e2e: Run E2E tests only
-.PHONY: test-e2e
-test-e2e:
-	@echo "$(CYAN)🧪 Running E2E tests...$(NC)"
-	@cd apps/web && pnpm test:e2e
-
-## test-watch: Run tests in watch mode
-.PHONY: test-watch
-test-watch:
-	@echo "$(CYAN)🧪 Running tests in watch mode...$(NC)"
-	@cd apps/web && pnpm vitest --watch
-
-#
-# 🏗️ Build & Deploy Commands
-#
-
-## build: Build production images
-.PHONY: build
-build:
-	@echo "$(CYAN)🔨 Building production images...$(NC)"
-	@cd apps/web && docker build -t ghcr.io/$(shell git config --get remote.origin.url | sed 's/.*://;s/.git$$//'):latest .
-	@echo "$(GREEN)✓ Build complete!$(NC)"
-
-## deploy: Deploy to current environment
-.PHONY: deploy
-deploy:
-	@echo "$(CYAN)🚀 Deploying to $(ENV_NAME)...$(NC)"
-ifeq ($(ENV),prod)
-	@$(MAKE) prod
-else ifeq ($(ENV),preview)
-	@$(MAKE) preview
+## shell: Enter container shell
+.PHONY: shell
+shell:
+	@$(PRINT) "$(CYAN)🐚 Entering shell...$(NC)\n"
+ifdef s
+	@docker exec -it $$(docker ps -qf "name=$(s)") /bin/sh
 else
-	@echo "$(RED)❌ Cannot deploy to development. Use 'make start' instead.$(NC)"
+	@docker exec -it $$(docker ps -qf "name=web") /bin/sh
 endif
 
-## preview: Deploy to preview environment
-.PHONY: preview
-preview:
-	@echo "$(CYAN)🔍 Deploying to Preview...$(NC)"
-	@ENV=preview $(MAKE) build
-	@ENV=preview $(MAKE) start
-	@echo "$(GREEN)✓ Preview deployed!$(NC)"
-	@echo "$(YELLOW)View at: https://preview.soccer-unify.com$(NC)"
+## docker-login: Login to GitHub Container Registry
+.PHONY: docker-login
+docker-login:
+	@$(PRINT) "$(CYAN)🔐 Logging into GitHub Container Registry...$(NC)\n"
+	@if [ -f .env ]; then \
+		export $$(grep -v '^#' .env | xargs) && \
+		echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_USER}" --password-stdin; \
+	else \
+		echo "$${GITHUB_TOKEN}" | docker login ghcr.io -u "$${GITHUB_USER}" --password-stdin; \
+	fi
+	@$(PRINT) "$(GREEN)✓ Login successful$(NC)\n"
 
-## prod: Deploy to production (with confirmation)
-.PHONY: prod
-prod:
-	@echo "$(RED)$(BOLD)⚠️  PRODUCTION DEPLOYMENT ⚠️$(NC)"
-	@echo "$(YELLOW)This will deploy to the live production environment.$(NC)"
-	@echo -n "$(BOLD)Are you sure? Type 'deploy-to-prod' to confirm: $(NC)"
-	@read confirm && [ "$$confirm" = "deploy-to-prod" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
-	@echo "$(CYAN)🚀 Deploying to Production...$(NC)"
-	@$(MAKE) backup ENV=prod
-	@ENV=prod $(MAKE) build
-	@ENV=prod $(MAKE) start
-	@echo "$(GREEN)✓ Production deployed!$(NC)"
-	@echo "$(YELLOW)View at: https://soccer-unify.com$(NC)"
+## clean: Clean up resources
+.PHONY: clean
+clean:
+	@$(PRINT) "$(YELLOW)🧹 Cleaning up...$(NC)\n"
+	@docker compose -f docker-compose.dev.yml down -v
+	@docker system prune -f
+	@$(PRINT) "$(GREEN)✓ Cleaned$(NC)\n"
 
 #
-# 🗄️ Database Commands
+# 🚢 Build & Deploy
 #
+
+## build: Build Docker image
+.PHONY: build
+build:
+	@$(PRINT) "$(CYAN)🔨 Building Docker image...$(NC)\n"
+	@$(PRINT) "Tag: $(IMAGE_NAME):$(TAG)\n"
+	@docker build --platform linux/amd64 -t $(IMAGE_NAME):$(TAG) .
+	@$(PRINT) "$(GREEN)✓ Build complete$(NC)\n"
+
+## push: Push Docker image
+.PHONY: push
+push:
+	@$(PRINT) "$(CYAN)📤 Pushing Docker image...$(NC)\n"
+	@docker push $(IMAGE_NAME):$(TAG)
+	@$(PRINT) "$(GREEN)✓ Push complete$(NC)\n"
+
+## build-and-push: Build and push Docker image
+.PHONY: build-and-push
+build-and-push: build push
+	@$(PRINT) "$(GREEN)✓ Build and push complete$(NC)\n"
+
+## deploy-preview: Build, push and deploy to preview environment
+.PHONY: deploy-preview
+deploy-preview: build-and-push
+	@$(PRINT) "$(CYAN)🚀 Deploying to preview environment...$(NC)\n"
+	@python3 scripts/portainer_deploy.py deploy preview $(TAG)
+
+## deploy-prod: Build, push and deploy to production
+.PHONY: deploy-prod
+deploy-prod: build-and-push
+	@$(PRINT) "$(CYAN)🚀 Deploying to production...$(NC)\n"
+	@python3 scripts/portainer_deploy.py deploy prod $(TAG)
+
+#
+# 🔧 Advanced (Hidden from main help)
+#
+
+## bootstrap-preview: Create initial preview stack in Portainer
+.PHONY: bootstrap-preview
+bootstrap-preview: build-and-push
+	@$(PRINT) "$(CYAN)🚀 Creating preview stack in Portainer...$(NC)\n"
+	@python3 scripts/portainer_deploy.py bootstrap preview $(GIT_SHA)
+
+## bootstrap-prod: Create initial production stack in Portainer
+.PHONY: bootstrap-prod
+bootstrap-prod: build-and-push
+	@python3 scripts/portainer_deploy.py bootstrap prod $(GIT_SHA)
+
+## portainer-test: Test Portainer API connection
+.PHONY: portainer-test
+portainer-test:
+	@python3 scripts/portainer_deploy.py test
+
+## portainer-status: Show deployed stacks status
+.PHONY: portainer-status
+portainer-status:
+	@python3 scripts/portainer_deploy.py status
+
+## status: Show running containers
+.PHONY: status
+status:
+	@docker compose -f docker-compose.dev.yml ps
 
 ## migrate: Run database migrations
 .PHONY: migrate
 migrate:
-	@echo "$(CYAN)🔄 Running migrations...$(NC)"
+	@$(PRINT) "$(CYAN)🔄 Running migrations...$(NC)\n"
 	@cd apps/web && pnpm db:migrate:deploy
 
-## seed: Seed database with test data
-.PHONY: seed
+## seed: Seed database
+.PHONY: seed  
 seed:
-	@echo "$(CYAN)🌱 Seeding database...$(NC)"
+	@$(PRINT) "$(CYAN)🌱 Seeding database...$(NC)\n"
 	@cd apps/web && pnpm db:seed
 
-## db-reset: Reset database (with confirmation)
-.PHONY: db-reset
-db-reset:
-	@echo "$(RED)$(BOLD)⚠️  DATABASE RESET ⚠️$(NC)"
-	@echo "$(YELLOW)This will delete all data in the $(ENV_NAME) database.$(NC)"
-	@echo -n "$(BOLD)Are you sure? Type 'reset-database' to confirm: $(NC)"
-	@read confirm && [ "$$confirm" = "reset-database" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
-	@cd apps/web && pnpm db:reset
-	@echo "$(GREEN)✓ Database reset complete$(NC)"
+## typecheck: Run TypeScript type checking
+.PHONY: typecheck
+typecheck:
+	@pnpm typecheck
 
-## backup: Backup database
-.PHONY: backup
-backup:
-	@echo "$(CYAN)💾 Backing up $(ENV_NAME) database...$(NC)"
-ifeq ($(ENV),dev)
-	@mkdir -p backups
-	@docker exec $$(docker ps -qf "name=postgres") pg_dump -U postgres soccer | gzip > backups/soccer_dev_$(TIMESTAMP).sql.gz
-else ifeq ($(ENV),preview)
-	@docker exec $$(docker ps -qf "name=postgres" -f "label=com.docker.swarm.service.name=project-unify-preview_postgres") pg_dump -U postgres soccer | gzip > /mnt/truenas/docker_volumes/project-unity/preview/backups/soccer_$(TIMESTAMP).sql.gz
-else
-	@docker exec $$(docker ps -qf "name=postgres" -f "label=com.docker.swarm.service.name=project-unify-prod_postgres") pg_dump -U postgres soccer | gzip > /mnt/truenas/docker_volumes/project-unity/prod/backups/soccer_$(TIMESTAMP).sql.gz
-endif
-	@echo "$(GREEN)✓ Backup saved: soccer_$(ENV)_$(TIMESTAMP).sql.gz$(NC)"
-
-## restore: Restore database from backup
-.PHONY: restore
-restore:
-	@echo "$(CYAN)📥 Available backups:$(NC)"
-ifeq ($(ENV),dev)
-	@ls -la backups/*.sql.gz 2>/dev/null || echo "No backups found"
-else ifeq ($(ENV),preview)
-	@ls -la /mnt/truenas/docker_volumes/project-unity/preview/backups/*.sql.gz 2>/dev/null || echo "No backups found"
-else
-	@ls -la /mnt/truenas/docker_volumes/project-unity/prod/backups/*.sql.gz 2>/dev/null || echo "No backups found"
-endif
-	@echo ""
-	@echo -n "$(BOLD)Enter backup filename to restore: $(NC)"
-	@read backup; \
-	if [ -n "$$backup" ]; then \
-		echo "$(YELLOW)Restoring from $$backup...$(NC)"; \
-		gunzip < $$backup | docker exec -i $$(docker ps -qf "name=postgres") psql -U postgres soccer; \
-		echo "$(GREEN)✓ Restore complete$(NC)"; \
-	else \
-		echo "$(RED)No backup specified$(NC)"; \
-	fi
-
-#
-# 🧹 Maintenance Commands
-#
-
-## clean: Clean up containers and volumes
-.PHONY: clean
-clean:
-	@echo "$(YELLOW)🧹 Cleaning up...$(NC)"
-	@docker system prune -f
-	@echo "$(GREEN)✓ Cleanup complete$(NC)"
-
-## update: Update all dependencies
-.PHONY: update
-update:
-	@echo "$(CYAN)📦 Updating dependencies...$(NC)"
-	@cd apps/web && pnpm update
-	@echo "$(GREEN)✓ Dependencies updated$(NC)"
-
-## health: Health check all services
-.PHONY: health
-health:
-	@echo "$(CYAN)🏥 Health Check for $(ENV_NAME)$(NC)"
-	@echo "$(YELLOW)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
-	@echo -n "PostgreSQL: "
-	@docker exec $$(docker ps -qf "name=postgres") pg_isready -U postgres >/dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
-	@echo -n "Redis: "
-	@docker exec $$(docker ps -qf "name=redis") redis-cli ping >/dev/null 2>&1 && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
-ifeq ($(ENV),dev)
-	@echo -n "MailHog: "
-	@curl -s http://localhost:8025/api/v2/messages >/dev/null && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
-	@echo -n "n8n: "
-	@curl -s http://localhost:5678/healthz >/dev/null && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(RED)✗ Unhealthy$(NC)"
-endif
-	@echo -n "App: "
-	@curl -s $(URL) >/dev/null && echo "$(GREEN)✓ Healthy$(NC)" || echo "$(YELLOW)⚡ Not running (run 'make start')$(NC)"
-
-#
-# 🎯 Convenience Shortcuts
-#
-
-## up: Alias for start
-.PHONY: up
-up: start
-
-## down: Alias for stop
-.PHONY: down
-down: stop
-
-## ps: Alias for status
-.PHONY: ps
-ps: status
-
-## l: Alias for logs
-.PHONY: l
-l: logs
-
-#
-# 🛠️ Advanced Commands (hidden from help)
-#
-
-## docker-clean: Deep clean Docker system
-.PHONY: docker-clean
-docker-clean:
-	@echo "$(RED)$(BOLD)⚠️  DOCKER DEEP CLEAN ⚠️$(NC)"
-	@echo "$(YELLOW)This will remove all stopped containers, unused images, and volumes.$(NC)"
-	@echo -n "$(BOLD)Continue? [y/N]: $(NC)"
-	@read confirm && [ "$$confirm" = "y" ] || (echo "$(RED)Cancelled$(NC)" && exit 1)
-	docker system prune -af --volumes
-
-## env-switch: Switch between environments
-.PHONY: env-switch
-env-switch:
-	@echo "$(CYAN)🔄 Switch Environment$(NC)"
-	@echo "Current: $(BOLD)$(ENV_NAME)$(NC)"
-	@echo ""
-	@echo "1) Development (dev)"
-	@echo "2) Preview (preview)"
-	@echo "3) Production (prod)"
-	@echo ""
-	@echo -n "Select environment [1-3]: "
-	@read choice; \
-	case $$choice in \
-		1) echo "export ENV=dev" > .env.make; echo "$(GREEN)✓ Switched to Development$(NC)";; \
-		2) echo "export ENV=preview" > .env.make; echo "$(GREEN)✓ Switched to Preview$(NC)";; \
-		3) echo "export ENV=prod" > .env.make; echo "$(GREEN)✓ Switched to Production$(NC)";; \
-		*) echo "$(RED)Invalid choice$(NC)";; \
-	esac
-
-# Include local environment if exists
--include .env.make
+## lint: Run linter
+.PHONY: lint
+lint:
+	@pnpm lint

@@ -102,8 +102,7 @@ test.describe.serial('Dashboard', () => {
     // In production, session should persist
     // In test environment with server actions, this might fail
     if (currentUrl.includes('/auth/login')) {
-      // This is expected behavior in test environment
-      console.log('Note: Session persistence with server actions is flaky in Playwright tests')
+      // This is expected behavior in test environment with server actions
       
       // Re-authenticate for the rest of the test
       await authenticateUser(page, testEmail)
@@ -165,7 +164,6 @@ test.describe.serial('Dashboard', () => {
       // If there's no interactive element to test, we can't properly test client-side error handling
       // The dashboard loads its data server-side, so intercepting those calls would break the initial render
       // This is a limitation of testing server components with API interception
-      console.log('Note: Cannot fully test API error handling for server-rendered data')
       
       // At minimum, verify the page loaded successfully before interception
       expect(page.url()).toContain('/dashboard')

@@ -37,7 +37,6 @@ export async function sendMagicLink(page: Page, email?: string, retryOnRateLimit
       const errorText = await errorMessage.textContent()
       
       if (retryOnRateLimit && errorText?.toLowerCase().includes('rate limit')) {
-        console.log('Rate limited, waiting and retrying with new email...')
         // Wait for rate limit to reset (typically 15 minutes, but we'll try sooner with new email)
         await randomDelay(5000, 10000)
         
@@ -165,17 +164,16 @@ export async function getMagicLinkFromMailHog(email: string): Promise<string | n
     // Add small delay to prevent overwhelming MailHog API
     await randomDelay(50, 200)
     
-    // MailHog API endpoint
-    const response = await fetch('http://localhost:8025/api/v2/messages')
+    // MailHog API endpoint - use environment variable if available
+    const mailhogUrl = process.env.MAILHOG_URL || 'http://localhost:8025'
+    const response = await fetch(`${mailhogUrl}/api/v2/messages`)
     
     if (!response.ok) {
-      console.log(`MailHog API returned ${response.status}`)
       return null
     }
     
     const messages = await response.json()
     
-    console.log(`Looking for email to ${email}, found ${messages.items?.length || 0} total messages`)
     
     // Find the most recent email to the specified address
     // Sort by timestamp to get most recent first
@@ -195,7 +193,6 @@ export async function getMagicLinkFromMailHog(email: string): Promise<string | n
         const isExactMatch = toEmail === email
         
         if (isExactMatch) {
-          console.log(`Found exact email match: ${toEmail} === ${email}`)
         }
         
         return isExactMatch
@@ -203,11 +200,9 @@ export async function getMagicLinkFromMailHog(email: string): Promise<string | n
     })
     
     if (!emailMessage) {
-      console.log(`No email found for ${email}`)
       return null
     }
     
-    console.log(`Found email for ${email}`)
     
     // Extract magic link from email content
     const emailContent = emailMessage.Content?.Body
@@ -229,14 +224,11 @@ export async function getMagicLinkFromMailHog(email: string): Promise<string | n
       link = link.replace(/&amp;/g, '&')
       // Ensure correct port for local tests
       link = link.replace(':3000', ':3001')
-      console.log(`Extracted magic link: ${link}`)
       return link
     }
     
-    console.log('No magic link found in email content')
     return null
   } catch (error) {
-    console.error('Failed to retrieve magic link from MailHog:', error)
     return null
   }
 }
@@ -251,18 +243,17 @@ export async function clearMailHogEmails(): Promise<void> {
   
   const success = await waitForCondition(async () => {
     try {
-      const response = await fetch('http://localhost:8025/api/v1/messages', {
+      const mailhogUrl = process.env.MAILHOG_URL || 'http://localhost:8025'
+      const response = await fetch(`${mailhogUrl}/api/v1/messages`, {
         method: 'DELETE'
       })
       return response.ok
     } catch (error) {
-      console.log('Failed to clear MailHog emails, retrying...', (error as Error).message)
       return false
     }
   }, 3, 1000)
   
   if (!success) {
-    console.warn('Failed to clear MailHog emails after retries')
   }
 }
 
@@ -282,7 +273,6 @@ export async function authenticateWithRealMagicLink(
     email = generateUniqueEmail('auth-test')
   }
   
-  console.log(`Authenticating with magic link for ${email}`)
   
   // Add staggered delay for parallel execution
   await randomDelay(200, 2000)
@@ -294,7 +284,6 @@ export async function authenticateWithRealMagicLink(
   try {
     email = await sendMagicLink(page, email, true)
   } catch (error) {
-    console.error('Failed to send magic link:', error)
     return false
   }
   
@@ -308,7 +297,6 @@ export async function authenticateWithRealMagicLink(
   }
   
   if (!magicLink) {
-    console.error('Magic link not received within timeout period')
     return false
   }
   
@@ -318,7 +306,6 @@ export async function authenticateWithRealMagicLink(
     await page.goto(magicLink)
     navigationSucceeded = true
   } catch (error) {
-    console.log('Navigation error (expected for redirects):', (error as Error).message)
     // Navigation errors are common with server-side redirects
     // The page might have already redirected despite the error
   }
@@ -334,7 +321,6 @@ export async function authenticateWithRealMagicLink(
   
   // If we're still on verify page or login, try waiting for auto-submit to complete
   if (currentUrl.includes('/auth/verify')) {
-    console.log('Still on verify page, waiting for auto-submit...')
     await page.waitForTimeout(3000) // Wait for auto-submit and redirect
     currentUrl = page.url()
     
@@ -345,7 +331,6 @@ export async function authenticateWithRealMagicLink(
   
   // If navigation failed initially, try again with wait for load state
   if (!navigationSucceeded || currentUrl.includes('/auth/login')) {
-    console.log('Retrying navigation with different approach...')
     try {
       await page.goto(magicLink, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(5000) // Wait longer for form submission
@@ -355,13 +340,11 @@ export async function authenticateWithRealMagicLink(
         return true
       }
     } catch (retryError) {
-      console.log('Retry navigation failed:', (retryError as Error).message)
     }
   }
   
   // Final check - if we're still not on dashboard, consider it failed
   if (currentUrl.includes('/auth/login') || currentUrl.includes('/auth/verify')) {
-    console.log('Magic link verification failed - still on auth page')
     return false
   }
   

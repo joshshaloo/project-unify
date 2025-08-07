@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createMockTRPCContext } from '@/test/utils/test-utils'
-import { createTestUser, createTestUserWithClub } from '@/test/factories'
+// import { createTestUser, createTestUserWithClub } from '@/test/factories'
 import { aiRouter } from './ai'
 
 // Mock dependencies
@@ -28,11 +28,19 @@ vi.mock('../../auth/roles', () => ({
 describe('AI Router', () => {
   let ctx: any
   let caller: any
-  const { n8nClient } = require('../../ai/n8n-client')
-  const { generateTrainingSession } = require('../../ai/session-generator')
-  const { hasMinimumRole, getUserRoleInClub } = require('../../auth/roles')
+  let n8nClient: any
+  let generateTrainingSession: any
+  let hasMinimumRole: any
+  let getUserRoleInClub: any
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const n8nClientModule = await import('../../ai/n8n-client')
+    const sessionGeneratorModule = await import('../../ai/session-generator')
+    const authRolesModule = await import('../../auth/roles')
+    n8nClient = (n8nClientModule as any).n8nClient
+    generateTrainingSession = (sessionGeneratorModule as any).generateTrainingSession
+    hasMinimumRole = (authRolesModule as any).hasMinimumRole
+    getUserRoleInClub = (authRolesModule as any).getUserRoleInClub
     vi.clearAllMocks()
     ctx = createMockTRPCContext()
     caller = aiRouter.createCaller(ctx)
@@ -109,19 +117,7 @@ describe('AI Router', () => {
       },
     }
 
-    const mockCreatedSession = {
-      id: 'session-123',
-      clubId: 'club-123',
-      teamId: 'team-123',
-      createdByUserId: 'test-user-id',
-      title: 'Passing and Shooting Training',
-      date: mockSessionInput.date,
-      duration: 90,
-      type: 'training',
-      status: 'draft',
-      aiGenerated: true,
-      plan: expect.any(Object),
-    }
+    // Unused - removed to fix lint error
 
     beforeEach(() => {
       // Setup default mocks
@@ -129,7 +125,21 @@ describe('AI Router', () => {
       hasMinimumRole.mockReturnValue(true)
       ctx.prisma.team.findUnique.mockResolvedValue(mockTeam)
       ctx.prisma.session.findMany.mockResolvedValue([])
-      ctx.prisma.session.create.mockResolvedValue(mockCreatedSession)
+      ctx.prisma.session.create.mockImplementation(({ data }: any) => 
+        Promise.resolve({
+          id: 'session-123',
+          clubId: data.clubId,
+          teamId: data.teamId,
+          createdByUserId: data.createdByUserId,
+          title: data.title,
+          date: data.date,
+          duration: data.duration,
+          type: data.type,
+          status: data.status,
+          aiGenerated: data.aiGenerated,
+          plan: data.plan,
+        })
+      )
     })
 
     it('should successfully generate session via n8n', async () => {
@@ -154,8 +164,23 @@ describe('AI Router', () => {
         weatherConditions: 'good',
       })
       expect(ctx.prisma.session.create).toHaveBeenCalled()
-      expect(result.session).toEqual(mockCreatedSession)
-      expect(result.n8nMetadata).toEqual(mockN8nResponse.metadata)
+      expect(result.session).toMatchObject({
+        id: 'session-123',
+        clubId: 'club-123',
+        teamId: 'team-123',
+        createdByUserId: 'test-user-id',
+        title: 'Passing and Shooting Training',
+        date: mockSessionInput.date,
+        duration: 90,
+        type: 'training',
+        status: 'draft',
+        aiGenerated: true,
+      })
+      expect(result.n8nMetadata).toEqual({
+        generatedAt: '2024-01-01T12:00:00Z',
+        teamId: 'team-123',
+        requestId: 'req-123',
+      })
     })
 
     it('should check user permissions', async () => {
@@ -382,7 +407,7 @@ describe('AI Router', () => {
 
       const result = await caller.generateSession(mockSessionInput)
 
-      const sessionPlan = result.session.plan
+      const sessionPlan = result.generatedPlan
       
       // Check warm-up mapping
       expect(sessionPlan.warmUp).toMatchObject({
@@ -451,7 +476,7 @@ describe('AI Router', () => {
       n8nClient.generateSession.mockResolvedValue(responseWithoutWarmup)
 
       const result = await caller.generateSession(mockSessionInput)
-      const sessionPlan = result.session.plan
+      const sessionPlan = result.generatedPlan
 
       // Should have fallback warm-up and cool-down
       expect(sessionPlan.warmUp.name).toBe('Dynamic Warm-Up')
@@ -600,22 +625,21 @@ describe('AI Router', () => {
         date: new Date(),
         duration: 90,
         sessionType: 'training',
-      })).rejects.toThrow()
+      })).rejects.toThrow('You must be logged in to access this resource')
 
       await expect(caller.regenerateSection({
         sessionId: 'session-123',
         section: 'warmUp',
-      })).rejects.toThrow()
+      })).rejects.toThrow('You must be logged in to access this resource')
 
-      // suggestDrills doesn't require auth currently, but let's test anyway
-      const result = await caller.suggestDrills({
+      // suggestDrills should also require auth
+      await expect(caller.suggestDrills({
         ageGroup: 'U12',
         category: 'technical',
         focus: 'passing',
         playerCount: 15,
         duration: 20,
-      })
-      expect(result).toBeDefined()
+      })).rejects.toThrow('You must be logged in to access this resource')
     })
   })
 })

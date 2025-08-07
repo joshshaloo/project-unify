@@ -45,13 +45,11 @@ export async function waitForCondition(
         return true
       }
     } catch (error) {
-      console.log(`Attempt ${attempt} failed:`, (error as Error).message)
     }
 
     if (attempt < maxAttempts) {
       // Exponential backoff with jitter
       const delayMs = initialDelayMs * Math.pow(2, attempt - 1) + Math.random() * 1000
-      console.log(`Waiting ${Math.round(delayMs)}ms before retry ${attempt + 1}...`)
       await new Promise(resolve => setTimeout(resolve, delayMs))
     }
   }

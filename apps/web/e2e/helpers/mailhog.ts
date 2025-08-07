@@ -29,8 +29,17 @@ interface MailHogResponse {
 export class MailHogHelper {
   private mailhogUrl: string
 
-  constructor(mailhogUrl: string = 'http://localhost:8025') {
-    this.mailhogUrl = mailhogUrl
+  constructor(mailhogUrl?: string) {
+    // Use environment variable or default based on test environment
+    if (mailhogUrl) {
+      this.mailhogUrl = mailhogUrl
+    } else if (process.env.MAILHOG_URL) {
+      this.mailhogUrl = process.env.MAILHOG_URL
+    } else if (process.env.TEST_ENV === 'preview') {
+      this.mailhogUrl = 'https://soccer-preview-ts.rockhopper-crested.ts.net/mailhog'
+    } else {
+      this.mailhogUrl = 'http://localhost:8025'
+    }
   }
 
   async getMessages(): Promise<MailHogMessage[]> {
@@ -84,7 +93,9 @@ export class MailHogHelper {
       // Clean up any remaining HTML entities
       link = link.replace(/&amp;/g, '&')
       // Ensure correct port for local tests
-      link = link.replace(':3000', ':3001')
+      if (process.env.TEST_ENV !== 'preview') {
+        link = link.replace(':3000', ':3001')
+      }
       return link
     }
     return null
@@ -100,11 +111,10 @@ export class MailHogHelper {
       try {
         const message = await this.getLatestMessage(toEmail)
         if (message) {
-          console.log(`Found message for ${toEmail} after ${attempt} attempts`)
           return message
         }
       } catch (error) {
-        console.log(`MailHog API error on attempt ${attempt}:`, (error as Error).message)
+        // API error, will retry
       }
       
       // Progressive backoff: start with shorter delays, increase for later attempts
@@ -112,7 +122,6 @@ export class MailHogHelper {
       await new Promise(resolve => setTimeout(resolve, delay))
     }
     
-    console.log(`No message found for ${toEmail} after ${attempt} attempts over ${timeout}ms`)
     return null
   }
 }
@@ -122,13 +131,11 @@ export async function getMagicLinkFromEmail(email: string): Promise<string | nul
   const message = await mailhog.waitForMessage(email)
   
   if (!message) {
-    console.error(`No email found for ${email}`)
     return null
   }
   
   const magicLink = mailhog.extractMagicLink(message)
   if (!magicLink) {
-    console.error(`No magic link found in email for ${email}`)
   }
   
   return magicLink
@@ -156,8 +163,65 @@ export async function authenticateUser(page: Page, email: string): Promise<void>
   }
   
   // Navigate to magic link
-  await page.goto(magicLink)
+  // WebKit has issues with server-side redirects, so we need special handling
+  const browserName = page.context().browser()?.browserType().name()
   
-  // Wait for redirect to dashboard
-  await page.waitForURL('/dashboard', { timeout: 10000 })
+  if (browserName === 'webkit') {
+    // For WebKit, use a more careful approach
+    try {
+      // Don't wait for networkidle as it can cause issues with redirects
+      await page.goto(magicLink, { waitUntil: 'commit' })
+    } catch (error: any) {
+      // WebKit often interrupts navigation during redirects - this is expected
+      if (!error?.message?.includes('interrupted')) {
+        throw error
+      }
+    }
+    
+    // Give WebKit time to process the redirect chain
+    await page.waitForTimeout(1000)
+    
+    // Now wait for the final URL
+    try {
+      await page.waitForURL('/dashboard', { timeout: 10000 })
+    } catch (error) {
+      const currentUrl = page.url()
+      
+      // If we're on login page, authentication failed
+      if (currentUrl.includes('/auth/login')) {
+        // The token might have been already used or expired
+        // Retry with a fresh magic link
+        
+        // Request a new magic link
+        await page.fill('input[name="email"]', email)
+        await page.click('button[type="submit"]')
+        await page.waitForSelector('text=Check your email', { timeout: 10000 })
+        
+        // Get the new magic link
+        const newMagicLink = await getMagicLinkFromEmail(email)
+        if (!newMagicLink) {
+          throw new Error(`Failed to get retry magic link for ${email}`)
+        }
+        
+        // Try again with the new link
+        try {
+          await page.goto(newMagicLink, { waitUntil: 'commit' })
+        } catch (retryError: any) {
+          // Ignore interruption errors
+          if (!retryError?.message?.includes('interrupted')) {
+            throw retryError
+          }
+        }
+        
+        await page.waitForTimeout(1000)
+        await page.waitForURL('/dashboard', { timeout: 10000 })
+      } else {
+        throw error
+      }
+    }
+  } else {
+    // For other browsers, use the standard approach
+    await page.goto(magicLink, { waitUntil: 'networkidle' })
+    await page.waitForURL('/dashboard', { timeout: 10000 })
+  }
 }

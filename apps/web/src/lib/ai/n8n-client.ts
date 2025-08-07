@@ -62,18 +62,24 @@ export class N8NClient {
   private readonly timeout: number;
 
   constructor() {
-    const webhookUrl = process.env.N8N_WEBHOOK_URL;
-    if (!webhookUrl) {
-      throw new Error('N8N_WEBHOOK_URL environment variable is required');
-    }
+    // Make webhook URL optional during build time
+    const webhookUrl = process.env.N8N_WEBHOOK_URL || '';
     this.baseUrl = webhookUrl;
     this.timeout = 30000; // 30 seconds
+  }
+
+  private ensureConfigured() {
+    if (!this.baseUrl) {
+      throw new Error('N8N_WEBHOOK_URL environment variable is required');
+    }
   }
 
   /**
    * Generate a training session using Coach Winston n8n workflow
    */
   async generateSession(request: CoachWinstonRequest): Promise<CoachWinstonResponse> {
+    this.ensureConfigured();
+    
     // Validate request
     const validatedRequest = coachWinstonRequestSchema.parse(request);
 
@@ -124,6 +130,8 @@ export class N8NClient {
    * Check if n8n service is healthy
    */
   async healthCheck(): Promise<boolean> {
+    this.ensureConfigured();
+    
     try {
       const response = await fetch(`${this.baseUrl}/webhook/health`, {
         method: 'GET',

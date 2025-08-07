@@ -111,11 +111,10 @@ export class MailHogHelper {
       try {
         const message = await this.getLatestMessage(toEmail)
         if (message) {
-          console.log(`Found message for ${toEmail} after ${attempt} attempts`)
           return message
         }
       } catch (error) {
-        console.log(`MailHog API error on attempt ${attempt}:`, (error as Error).message)
+        // API error, will retry
       }
       
       // Progressive backoff: start with shorter delays, increase for later attempts
@@ -123,7 +122,6 @@ export class MailHogHelper {
       await new Promise(resolve => setTimeout(resolve, delay))
     }
     
-    console.log(`No message found for ${toEmail} after ${attempt} attempts over ${timeout}ms`)
     return null
   }
 }
@@ -133,13 +131,11 @@ export async function getMagicLinkFromEmail(email: string): Promise<string | nul
   const message = await mailhog.waitForMessage(email)
   
   if (!message) {
-    console.error(`No email found for ${email}`)
     return null
   }
   
   const magicLink = mailhog.extractMagicLink(message)
   if (!magicLink) {
-    console.error(`No magic link found in email for ${email}`)
   }
   
   return magicLink
@@ -175,9 +171,9 @@ export async function authenticateUser(page: Page, email: string): Promise<void>
     try {
       // Don't wait for networkidle as it can cause issues with redirects
       await page.goto(magicLink, { waitUntil: 'commit' })
-    } catch (error) {
+    } catch (error: any) {
       // WebKit often interrupts navigation during redirects - this is expected
-      if (!error.message?.includes('interrupted')) {
+      if (!error?.message?.includes('interrupted')) {
         throw error
       }
     }
@@ -189,16 +185,12 @@ export async function authenticateUser(page: Page, email: string): Promise<void>
     try {
       await page.waitForURL('/dashboard', { timeout: 10000 })
     } catch (error) {
-      // Log the current URL for debugging
       const currentUrl = page.url()
-      console.log('WebKit auth failed. Current URL:', currentUrl)
       
       // If we're on login page, authentication failed
       if (currentUrl.includes('/auth/login')) {
         // The token might have been already used or expired
-        // For alex@lightningfc.com, which is used across tests, we might have timing issues
-        // Let's retry with a fresh magic link
-        console.log('WebKit auth redirect to login, retrying with fresh token...')
+        // Retry with a fresh magic link
         
         // Request a new magic link
         await page.fill('input[name="email"]', email)
@@ -214,9 +206,9 @@ export async function authenticateUser(page: Page, email: string): Promise<void>
         // Try again with the new link
         try {
           await page.goto(newMagicLink, { waitUntil: 'commit' })
-        } catch (retryError) {
+        } catch (retryError: any) {
           // Ignore interruption errors
-          if (!retryError.message?.includes('interrupted')) {
+          if (!retryError?.message?.includes('interrupted')) {
             throw retryError
           }
         }

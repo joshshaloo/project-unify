@@ -35,9 +35,6 @@ test.describe('Magic Link Authentication Flow', () => {
       
       // Should show either success or error message
       expect(hasSuccessMessage || hasErrorMessage).toBeTruthy()
-      
-      // Log what we found for debugging
-      console.log(`Test result: Success=${hasSuccessMessage}, Error=${hasErrorMessage}`)
     })
 
     test('should show loading state while sending magic link', async ({ page }) => {

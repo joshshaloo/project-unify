@@ -47,7 +47,7 @@ test.describe.serial('AI Session Generation - Simple Tests', () => {
           </form>
         </div>
       `
-      document.getElementById('test-form').addEventListener('submit', (e) => {
+      document.getElementById('test-form')?.addEventListener('submit', (e) => {
         e.preventDefault()
         const formData = new FormData(e.target as HTMLFormElement)
         if (!formData.get('date') || !formData.get('time') || !formData.get('duration') || !formData.get('sessionType')) {
@@ -92,7 +92,7 @@ test.describe.serial('AI Session Generation - Simple Tests', () => {
           </form>
         </div>
       `
-      document.getElementById('test-form').addEventListener('submit', (e) => {
+      document.getElementById('test-form')?.addEventListener('submit', (e) => {
         e.preventDefault()
         const formData = new FormData(e.target as HTMLFormElement)
         const date = formData.get('date') as string
@@ -150,7 +150,7 @@ test.describe.serial('AI Session Generation - Simple Tests', () => {
           </form>
         </div>
       `
-      document.getElementById('test-form').addEventListener('submit', (e) => {
+      document.getElementById('test-form')?.addEventListener('submit', (e) => {
         e.preventDefault()
         const formData = new FormData(e.target as HTMLFormElement)
         const date = formData.get('date') as string
